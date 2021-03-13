@@ -1,26 +1,46 @@
 import json
+import logging
 import os
-import easygui
-import selection_menu
 
-from colorama import Fore
+import easygui
 from tqdm import tqdm
+
+import selection_menu
 from constants import *
+
+dictionary_data = {}  # a dictionary data container. Contains all the word and symbols statistics
+dictionary_words = []
+dictionary_symbols = []
 
 
 def load_dictionary(dictionary_path: str) -> dict:
-    data_str: str = ''
-    num_file = sum([1 for i in open(dictionary_path, 'r')])
-    with open(dictionary_path, 'r') as f:
-        for idx, line in tqdm(enumerate(f), total=num_file, desc='Dictionary loading'):
-            data_str += line.strip()
-    data = json.loads(data_str)
-    print(f'Dictionary loaded {Fore.GREEN}successfully{Fore.WHITE}!')
+    """
+    Loads dictionary data from specified path
+    :param dictionary_path: the path to the file from which the dictionary data will be loaded
+    :return: dictionary data
+    """
+    data = {}
+    try:
+        data_lines: list = []
+        num_file = sum([1 for _ in open(dictionary_path, 'r')])
+        with open(dictionary_path, 'r') as f:
+            for idx, line in tqdm(enumerate(f), total=num_file, desc='Dictionary loading', unit='Lines',
+                                  unit_scale=True):
+                data_lines.append(line.strip())
+        data = json.loads(''.join(data_lines))
+        print(f'Dictionary loaded {Fore.GREEN}successfully{Fore.WHITE}!')
+    except Exception as e:
+        print(f'Dictionary loading {Fore.RED}failed{Fore.WHITE}! Choose another dictionary file or try again.')
+        logging.exception(e)
 
     return data
 
 
-def choose_dictionary_file() -> str:
+def get_dictionary_path() -> str:
+    """
+    Shows file dialog window in which the user can select the file to load the dictionary from
+    :return: path of selected file
+    """
     filename = None
     while filename is None:
         filename = easygui.fileopenbox(title='Select dictionary file', default='*.json', filetypes=["*.json"])
@@ -28,12 +48,22 @@ def choose_dictionary_file() -> str:
     return filename
 
 
-def choose_dictionary():
+def show_dictionary_selection_menu():
+    """
+    Shows a selection menu where the user can choose what dictionary he wants to use
+    """
+    global dictionary_data, dictionary_words, dictionary_symbols
+
     if selection_menu.choose(dictionary_to_use_title, dictionary_to_use_options) == dictionary_to_use_options[0]:
-        file_path: str = default_dictionary_path
+        file_path = default_dictionary_path
         if not os.path.exists(default_dictionary_path):
-            file_path = choose_dictionary_file()
-        load_dictionary(file_path)
+            file_path = get_dictionary_path()
     else:
-        file_path = choose_dictionary_file()
-        load_dictionary(file_path)
+        file_path = get_dictionary_path()
+    dictionary_data = load_dictionary(file_path)
+
+    while dictionary_data == {}:
+        show_dictionary_selection_menu()
+
+    dictionary_words = list(dictionary_data['words'].keys())
+    dictionary_symbols = list(dictionary_data['symbols'].keys())
