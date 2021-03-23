@@ -2,6 +2,8 @@ import time
 import keyboard
 from colorama import Fore
 
+import helper
+
 
 def __set_variable(var: list, value):
     var[0] = value
@@ -27,4 +29,5 @@ def choose(title: str, options: list) -> str:
         time.sleep(0.01)
 
     print(f"You choose option '{Fore.GREEN + str(selection_index[0] + 1) + Fore.WHITE}'", '\n')
+    helper.flush_input()  # we should clear input buffer as the user press some button to choose an option
     return options[selection_index[0]]

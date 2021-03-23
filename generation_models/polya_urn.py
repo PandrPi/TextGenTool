@@ -1,18 +1,33 @@
 import random
+import copy
 import dictionary_loader
 import helper
 from generation_models.general_model import GenModel
 
 
 class PolyaUrn(GenModel):
-    def __init__(self, name: str, variables: dict):
-        super().__init__(name, variables)
+    def __init__(self, name: str):
+        parameters = copy.deepcopy(GenModel.params_general)
+        parameters.update({
+            'rho': {
+                'value': 4,
+                'type': int,
+                'constant': False
+            },
+            'nu': {
+                'value': 4,
+                'type': int,
+                'constant': False
+            }
+        })
+        parameters['text_length']['constant'] = True
+        super().__init__(name, parameters)
 
     def generate(self):
-        urn_initial_size = self.variables['urn_initial_size']['value']
-        desired_text_length = self.variables['text_length']['value']
-        rho = self.variables['rho']['value']
-        nu = self.variables['nu']['value']
+        urn_initial_size = self.parameters['urn_initial_size']['value']
+        desired_text_length = self.parameters['text_length']['value']
+        rho = self.parameters['rho']['value']
+        nu = self.parameters['nu']['value']
 
         # this list contains only types (unique words/symbols)
         # to prevent app from crashing we need to limit the k parameter of the choices method

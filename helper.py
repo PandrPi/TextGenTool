@@ -23,3 +23,20 @@ def model_range(*args, **kwargs):
 def print_types_container_is_empty_message(desired_text_length, text_length):
     print(f"\n{Fore.YELLOW}IMPORTANT{Fore.WHITE}: Cannot reach desired text length, the dictionary is empty.\n"
           f"Generated text length is {text_length}/{desired_text_length} units. Choose smaller text size or try again.")
+
+
+def flush_input():
+    try:
+        import msvcrt
+        while msvcrt.kbhit():
+            msvcrt.getch()
+    except ImportError:
+        import sys, termios  # for linux/unix
+        termios.tcflush(sys.stdin, termios.TCIOFLUSH)
+
+
+def safe_cast(value, to_type, default=None):
+    try:
+        return to_type(value)
+    except (ValueError, TypeError):
+        return default
