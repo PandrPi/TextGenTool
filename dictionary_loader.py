@@ -28,9 +28,9 @@ def load_dictionary(dictionary_path: str) -> dict:
                                   unit_scale=True):
                 data_lines.append(line.strip())
         data = json.loads(''.join(data_lines))
-        print(f'Dictionary loaded {Fore.GREEN}successfully{Fore.WHITE}!')
+        print(f'Dictionary loaded {Fore.GREEN}successfully{Fore.WHITE}!\n')
     except Exception as e:
-        print(f'Dictionary loading {Fore.RED}failed{Fore.WHITE}! Choose another dictionary file or try again.')
+        print(f'Dictionary loading {Fore.RED}failed{Fore.WHITE}! Choose another dictionary file or try again.\n')
         logging.exception(e)
 
     return data
@@ -48,13 +48,13 @@ def get_dictionary_path() -> str:
     return filename
 
 
-def show_dictionary_selection_menu():
+def show_dictionary_selection_menu(**kwargs):
     """
     Shows a selection menu where the user can choose what dictionary he wants to use
     """
     global dictionary_data, dictionary_words, dictionary_symbols
 
-    if selection_menu.choose(dictionary_to_use_title, dictionary_to_use_options) == dictionary_to_use_options[0]:
+    if selection_menu.choose(dictionary_menu_title, dictionary_menu_options, **kwargs) == dictionary_menu_options[0]:
         file_path = default_dictionary_path
         if not os.path.exists(default_dictionary_path):
             file_path = get_dictionary_path()

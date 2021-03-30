@@ -5,13 +5,11 @@ import logging
 class GenModel:
     params_general: dict = {
         'urn_initial_size': {
-            'value': 10,
-            'type': int,
+            'value': 200,
             'constant': False
         },
         'text_length': {
-            'value': 10,
-            'type': int,
+            'value': 1000,
             'constant': False
         }
     }
@@ -29,8 +27,7 @@ class GenModel:
             return True
 
         try:
-            all_keys_presented = is_key_presented('value') and is_key_presented('type') and is_key_presented('constant')
-            parameter['value'] = parameter['type'](parameter['value'])  # manually convert value to desired type
+            all_keys_presented = is_key_presented('value') and is_key_presented('constant')
             return all_keys_presented and isinstance(parameter['constant'], bool)
         except Exception as e:
             logging.exception(e)
@@ -40,5 +37,5 @@ class GenModel:
         for param in self.parameters:
             self.__check_parameter(param)
 
-    def generate(self):
+    def generate(self) -> list:
         pass

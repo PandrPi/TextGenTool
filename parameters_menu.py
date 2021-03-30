@@ -1,4 +1,5 @@
-from colorama import Fore
+import helper
+from generation_models.general_model import GenModel
 
 
 def __write_input_request(var_name, value, end=''):
@@ -6,8 +7,13 @@ def __write_input_request(var_name, value, end=''):
     curses_helper.write_formatted("  '{0, 2}' value ({1, 3}): " + end, var_name, value)
 
 
-def complete(caption: str, parameters: dict):
+def complete(model: GenModel):
     import curses_helper
+
+    helper.flush_input()
+
+    caption: str = f'Enter {model.name} parameters:'
+    parameters: dict = model.parameters
 
     # write a caption
     curses_helper.write_formatted("{0, 2} {1, 1}\n", chr(9679), caption)
@@ -35,17 +41,5 @@ def complete(caption: str, parameters: dict):
                 else:
                     break  # if the input is correct then break loop
             previous_value_dict[k] = str(v['value'])
-            v['value'] = v['type'](value)
+            v['value'] = type(v['value'])(value)
     curses_helper.close()
-
-    #  print the same text without curses in order it to stay in console after the curses screen become closed
-
-    green = Fore.GREEN
-    white = Fore.WHITE
-
-    #  write a caption
-    print(f"\n{green + str(chr(9679)) + white} {caption}")
-    for k, v in parameters.items():
-        if not v['constant']:
-            value = str(v['value'])
-            print(f"  '{green + k + white}' value ({Fore.YELLOW + previous_value_dict[k] + white}): {value}")

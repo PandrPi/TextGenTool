@@ -11,19 +11,16 @@ class PolyaUrn(GenModel):
         parameters.update({
             'rho': {
                 'value': 4,
-                'type': int,
                 'constant': False
             },
             'nu': {
                 'value': 4,
-                'type': int,
                 'constant': False
             }
         })
-        parameters['text_length']['constant'] = True
         super().__init__(name, parameters)
 
-    def generate(self):
+    def generate(self) -> list:
         urn_initial_size = self.parameters['urn_initial_size']['value']
         desired_text_length = self.parameters['text_length']['value']
         rho = self.parameters['rho']['value']
@@ -53,7 +50,7 @@ class PolyaUrn(GenModel):
             else:
                 # we should check the size of types_container in order to prevent the app from crash
                 if len(types_container) < nu + 1:
-                    helper.print_types_container_is_empty_message(desired_text_length, len(out_unit_list))
+                    helper.print_type_container_is_empty_message(desired_text_length, len(out_unit_list))
                     break
 
                 urn_dict[random_unit] = rho
