@@ -1,9 +1,11 @@
-import re
 import json
+import re
 import time
+
 import easygui
 from tqdm import tqdm
-from collections import Counter
+
+import helper
 
 new_line_pattern = re.compile(r"\s")
 clean_pattern = re.compile(r"([^'’a-zA-Z ]’?'?)")
@@ -30,39 +32,22 @@ def create_dictionary_json():
     if file_list is None:
         return
 
-    words_dict: dict = {'words_number': 0, 'words': {}, 'symbols_number': 0, 'symbols': {}}
-    words = Counter(words_dict['words'])
-    symbols = Counter(words_dict['symbols'])
-    total_words_number = 0
+    words: set = set()
 
     for f in tqdm(file_list, desc='Dictionary creation', unit=' files'):
         file_text = get_formatted_string_from_file(f).strip()
-        word_list: list = file_text.split(' ')
-        total_words_number += len(word_list)
+        words_local: set = set(file_text.split(' '))
 
-        words += Counter(word_list)
-        symbols += Counter(file_text)
+        words |= words_local
 
-    words_dict['words_number'] = total_words_number
-    words_dict['words'] = dict(words)
-    sorted_tuples = sorted(words_dict['words'].items(), key=lambda item: item[1], reverse=True)
-    words_dict['words'] = {k: v for k, v in sorted_tuples}
+    words_dict: dict = {"words": [w for w in words if len(w) < 15], 'symbols': list(' abcdefghijklmnopqrstuvwxyz')}
 
-    words_dict['symbols'] = dict(symbols)
-    words_dict['symbols_number'] = sum(words_dict['symbols'].values())
-    sorted_tuples = sorted(words_dict['symbols'].items(), key=lambda item: item[1], reverse=True)
-    words_dict['symbols'] = {k: v for k, v in sorted_tuples}
+    dictionary_path = helper.get_filename_from_dialog('Select files for dictionary', '*.json', ["*.json"], False)
 
-    dictionary_path = None
-    while dictionary_path is None:
-        dictionary_path = easygui.filesavebox(title='Select files for dictionary',
-                                              default='*.json', filetypes=["*.json"])
-    if not dictionary_path.endswith('.json'):
-        dictionary_path += '.json'
     with open(dictionary_path, "w") as fp:
         json.dump(words_dict, fp, indent=4)
 
-    print(f'Total words number = {total_words_number}')
+    print(f"Total words number = {len(words_dict['words'])}")
 
 
 start = time.time()

@@ -7,13 +7,16 @@ def __write_input_request(var_name, value, end=''):
     curses_helper.write_formatted("  '{0, 2}' value ({1, 3}): " + end, var_name, value)
 
 
-def complete(model: GenModel):
+def complete(model: GenModel, error_message: str = ''):
     import curses_helper
 
     helper.flush_input()
 
     caption: str = f'Enter {model.name} parameters:'
     parameters: dict = model.parameters
+
+    # write an error message if it exists
+    curses_helper.write_formatted("{0}", error_message)
 
     # write a caption
     curses_helper.write_formatted("{0, 2} {1, 1}\n", chr(9679), caption)
@@ -43,3 +46,10 @@ def complete(model: GenModel):
             previous_value_dict[k] = str(v['value'])
             v['value'] = type(v['value'])(value)
     curses_helper.close()
+
+    for k, v in model.param_conditions.items():
+        condition = v.format('model.parameters')
+        if not eval(condition):
+            return complete(model, "An error occurred while checking the conditions of the model parameters: \n"
+                                   "\t{0}\n\n".format(k))
+    return True

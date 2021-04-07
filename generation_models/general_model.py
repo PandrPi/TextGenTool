@@ -1,15 +1,11 @@
-import easygui
-import logging
-
-
 class GenModel:
     params_general: dict = {
         'urn_initial_size': {
-            'value': 200,
+            'value': 50,
             'constant': False
         },
         'text_length': {
-            'value': 1000,
+            'value': 100000,
             'constant': False
         }
     }
@@ -17,25 +13,7 @@ class GenModel:
     def __init__(self, name: str, parameters: dict):
         self.name = name
         self.parameters = parameters
-
-    def __check_parameter(self, parameter: dict):
-        def is_key_presented(key: str) -> bool:
-            if key not in parameter:
-                easygui.msgbox(f"{self.name} error: key '{key}' is not presented in parameters dict!",
-                               title='Key is not presented!')
-                return False
-            return True
-
-        try:
-            all_keys_presented = is_key_presented('value') and is_key_presented('constant')
-            return all_keys_presented and isinstance(parameter['constant'], bool)
-        except Exception as e:
-            logging.exception(e)
-            return False
-
-    def verify_parameters(self):
-        for param in self.parameters:
-            self.__check_parameter(param)
+        self.param_conditions: dict = {}
 
     def generate(self) -> list:
         pass

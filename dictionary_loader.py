@@ -2,9 +2,9 @@ import json
 import logging
 import os
 
-import easygui
 from tqdm import tqdm
 
+import helper
 import selection_menu
 from constants import *
 
@@ -41,11 +41,7 @@ def get_dictionary_path() -> str:
     Shows file dialog window in which the user can select the file to load the dictionary from
     :return: path of selected file
     """
-    filename = None
-    while filename is None:
-        filename = easygui.fileopenbox(title='Select dictionary file', default='*.json', filetypes=["*.json"])
-
-    return filename
+    return helper.get_filename_from_dialog('Select dictionary file', '*.json', ["*.json"])
 
 
 def show_dictionary_selection_menu(**kwargs):
@@ -65,5 +61,5 @@ def show_dictionary_selection_menu(**kwargs):
     while dictionary_data == {}:
         show_dictionary_selection_menu()
 
-    dictionary_words = list(dictionary_data['words'].keys())
-    dictionary_symbols = list(dictionary_data['symbols'].keys())
+    dictionary_words = dictionary_data['words']
+    dictionary_symbols = dictionary_data['symbols']

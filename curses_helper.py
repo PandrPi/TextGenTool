@@ -1,4 +1,5 @@
 import curses
+
 from helper import safe_cast
 
 src: curses.window = curses.initscr()

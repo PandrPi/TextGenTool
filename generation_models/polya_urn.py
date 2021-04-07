@@ -1,5 +1,6 @@
-import random
 import copy
+import random
+
 import dictionary_loader
 import helper
 from generation_models.general_model import GenModel
@@ -10,11 +11,11 @@ class PolyaUrn(GenModel):
         parameters = copy.deepcopy(GenModel.params_general)
         parameters.update({
             'rho': {
-                'value': 4,
+                'value': 10,
                 'constant': False
             },
             'nu': {
-                'value': 4,
+                'value': 5,
                 'constant': False
             }
         })
@@ -27,40 +28,43 @@ class PolyaUrn(GenModel):
         nu = self.parameters['nu']['value']
 
         # this list contains only types (unique words/symbols)
-        # to prevent app from crashing we need to limit the k parameter of the choices method
-        # by a total number of words/symbols
-        types_container = random.choices(dictionary_loader.dictionary_words,
-                                         k=min(desired_text_length * (nu + 1) + urn_initial_size,
-                                               len(dictionary_loader.dictionary_words)))
-        urn_dict = {key: 1 for key in types_container[:urn_initial_size]}
-        urn_keys = set(urn_dict.keys())  # contains all the keys of unr dictionary
-        # now we should exclude the urn_dict from the types_container
-        types_container = set(types_container) - set(urn_keys)
+        # randomly extract specified number of words from the dictionary
+        types_container = random.sample(dictionary_loader.dictionary_words, 100000)
+
+        urn_list = [key for key in types_container[:urn_initial_size]]
+        dict_line = urn_initial_size
 
         out_unit_list = []  # contains a generated text as the list of units
-        text_types: set = set()  # contains all the types that are presented in current text
+        text_tokens: dict = {}  # contains all the types that are presented in current text
 
         for _ in helper.model_range(desired_text_length, desc=self.name):
-            random_unit = urn_keys.pop()
+            random_unit = random.choice(urn_list)
             out_unit_list.append(random_unit)
-            urn_keys.add(random_unit)
 
-            if random_unit in text_types:
-                urn_dict[random_unit] += rho
+            if random_unit in text_tokens:
+                text_tokens[random_unit] += rho
+
+                for _ in range(rho):
+                    urn_list.append(random_unit)
             else:
                 # we should check the size of types_container in order to prevent the app from crash
-                if len(types_container) < nu + 1:
+                if dict_line < len(types_container) - nu:
                     helper.print_type_container_is_empty_message(desired_text_length, len(out_unit_list))
                     break
 
-                urn_dict[random_unit] = rho
+                text_tokens[random_unit] = rho + 1
+
+                for _ in range(rho):
+                    urn_list.append(random_unit)
+
                 # update urn with totally new units taken from types_container
                 for _ in range(nu + 1):
-                    new_unit = types_container.pop()
-                    urn_dict[new_unit] = 1
-                    urn_keys.add(new_unit)
-                    text_types.add(new_unit)
-                text_types.add(random_unit)
-                urn_keys.add(random_unit)
+                    new_unit = types_container[dict_line]
+                    dict_line += 1
+                    urn_list.append(new_unit)
+
+        types_container.clear()
+        urn_list.clear()
+        text_tokens.clear()
 
         return out_unit_list

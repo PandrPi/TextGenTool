@@ -4,15 +4,17 @@ import constants
 import dictionary_loader
 import helper
 import parameters_menu
+import plot_drawer
 import selection_menu
 from generation_models.general_model import GenModel
+from generation_models.poisson_dirichlet_model import PoissonDirechletModel
+from generation_models.polya_urn import PolyaUrn
 from generation_models.polya_urn_classic import PolyaUrnClassic
 from stopwatch import Stopwatch
-from generation_models.polya_urn import PolyaUrn
 
 # !!! IMPORTANT TERMINOLOGY !!!
 #
-# unit - generalization of word or symbol
+# unit - generalization of word or symbol(if it will be implemented in app)
 # type - unique unit
 # token - duplicate of the specific type, can exist in many places in the text
 #
@@ -23,7 +25,8 @@ from generation_models.polya_urn import PolyaUrn
 
 if __name__ == "__main__":
     model: GenModel
-    models: list = [PolyaUrn('Polya Urn model'), PolyaUrnClassic('Classic Polya Urn model')]
+    models: list = [PolyaUrn('Polya Urn model'), PolyaUrnClassic('Classic Polya Urn model'),
+                    PoissonDirechletModel('Poisson-Dirichlet model')]
 
     method_list = [lambda **kwargs: dictionary_loader.show_dictionary_selection_menu(**kwargs),
                    lambda **kwargs: selection_menu.choose(constants.model_selection_menu_title,
@@ -45,14 +48,27 @@ if __name__ == "__main__":
             current_index = 1
             continue
 
-        # check whether current menu equals model selection menu
+        # check whether current menu is model selection menu
         if current_index == 1:
-            model = [i for i in models if i.name == choice][0]  # set chosen model as current model
+            model = [i for i in models if i.name == choice][0]  # set the chosen model as current model
             parameters_menu.complete(model)
             print(model.parameters)
             watch1 = Stopwatch.start_new('Total time: {0} secs')
             generated_units = model.generate()
             watch1.display_time()
+
+            plot_drawer.draw_zipf_law(helper.get_word_frequencies(generated_units))
+            plot_drawer.draw_heaps_law(generated_units)
+
+            # get default filename generated from the parameters of the model and generated text
+            default_filename = helper.get_filename_from_generation_params(model.name, len(generated_units),
+                                                                          model.parameters) + '.txt'
+            # ask user to select the resulting filename in the dialog window
+            filename = helper.get_filename_from_dialog('Save the generated text to file', default_filename,
+                                                       ["*.txt"], open_dialog=False)
+            if filename != '':
+                # save generated text to file
+                helper.write_text_to_file(filename, helper.get_text_from_list(generated_units))
 
         current_index = helper.clamp(current_index + 1, 0, len(method_list) - 1)
 
