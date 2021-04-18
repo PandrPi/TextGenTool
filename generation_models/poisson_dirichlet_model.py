@@ -20,7 +20,7 @@ class PoissonDirechletModel(PolyaUrn):
         new_rho = rho - nu - 1
 
         # this list contains only types (unique words/symbols)
-        types_container = random.sample(dictionary_loader.dictionary_words, 100000)
+        types_container = random.sample(dictionary_loader.dictionary_words, len(dictionary_loader.dictionary_words))
 
         urn_list = [key for key in types_container[:urn_initial_size]]
         dict_line = urn_initial_size
@@ -39,7 +39,7 @@ class PoissonDirechletModel(PolyaUrn):
                     urn_list.append(random_unit)
             else:
                 # we should check the size of types_container in order to prevent the app from crash
-                if dict_line < len(types_container) - nu:
+                if dict_line > len(types_container) - nu:
                     helper.print_type_container_is_empty_message(desired_text_length, len(out_unit_list))
                     break
 

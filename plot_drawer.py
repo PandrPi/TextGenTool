@@ -55,7 +55,7 @@ def draw_zipf_law(word_frequencies: dict, label: str = "ρ ν"):
     basic_plot_draw(x, y, 'Rank', 'Frequency', label, "Zipf's law")
 
 
-def draw_heaps_law(word_list: list, desired_points_number: int = 1000, label: str = "ρ ν"):
+def draw_heaps_law(word_list: list, desired_points_number: int = 10000, label: str = "ρ ν"):
     """
     Calculates and draws the correlation of total words number to a number of unique words (Heaps' law)
     :param word_list: The list of words to process

@@ -1,4 +1,5 @@
 import os
+import random
 
 import constants
 import dictionary_loader
@@ -18,10 +19,89 @@ from stopwatch import Stopwatch
 # type - unique unit
 # token - duplicate of the specific type, can exist in many places in the text
 #
-
 # TO BUILD AN EXE FILE OUT OF MAIN.PY USE THE FOLLOWING COMMAND IN TERMINAL:
 # pyinstaller --onefile --name TextGenTool main.py
+# OR
+# pyinstaller --name TextGenTool main.py
 
+from time import time
+from random import randint
+from collections import Counter
+from copy import deepcopy
+import numpy as np
+import bisect
+import itertools
+
+
+def weighted_random1(seq, weights, weight_sum):
+    r = random.random() * weight_sum
+    weights_cum = list(itertools.accumulate(weights))
+    index = bisect.bisect_right(weights_cum, r)
+    return seq[index]
+
+
+iterations = 10000
+items = list('abcde') * 500
+weights = [18, 1, 1, 1, 1] * 500
+total1 = 0
+weights_cum1 = [total1 := (total1 + x) for x in weights]
+weight_sum = sum(weights)
+
+weights_temp = [5, 7, 4, 2, 8] * 500
+weights_acc_temp = [5, 7, 4, 2, 8] * 500
+
+test = [0, 1, 2, 3, 4]
+test1 = [0, 1, 2, 3, 4, 5, 6, 7]
+test[2:4] = test1[5:7]
+
+
+random.seed = 0
+for _ in range(100):
+    index = randint(0, len(weights_temp))
+    weights_temp.insert(index, randint(0, 100))
+
+    temp1 = list(itertools.accumulate(weights_temp))
+
+# time_sum = 0
+# for _ in range(iterations):
+#     start = time()
+#     temp = itertools.accumulate(weights)
+#     time_sum += time() - start
+# print('itertools: ', time_sum)
+
+# time_sum = 0
+# for _ in range(iterations):
+#     start = time()
+#     total = 0
+#     temp = [total := (total + x) for x in weights]
+#     time_sum += time() - start
+# print('list comprehensions: ', time_sum)
+#
+# time_sum = 0
+# for _ in range(iterations):
+#     start = time()
+#     temp = np.cumsum(weights)
+#     time_sum += time() - start
+# print('np: ', time_sum)
+
+time_sum = 0
+for _ in range(iterations):
+    start = time()
+    temp = helper.weighted_random(items, weights, weight_sum)
+    time_sum += time() - start
+print(time_sum)
+
+# print(Counter(helper.weighted_random(items, weights, weight_sum) for _ in range(iterations)))
+
+time_sum = 0
+for _ in range(iterations):
+    start = time()
+    temp = weighted_random1(items, weights, weight_sum)
+    time_sum += time() - start
+print(time_sum)
+
+# print(Counter(weighted_random1(items, weights, weight_sum) for _ in range(iterations)))
+print()
 
 if __name__ == "__main__":
     model: GenModel

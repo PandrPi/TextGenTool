@@ -1,11 +1,27 @@
+import bisect
 import logging
+import random
 from collections import Counter
+from random import randint
 
 import easygui
 from colorama import Fore
 from tqdm import trange
 
 import constants
+
+
+def weighted_random(seq, weights, weight_sum):
+    # r = randint(1, weight_sum)
+    # total = 0
+    # weights_cum = [total := (total + x) for x in weights]
+    # index = bisect.bisect_left(weights_cum, r)
+    # return seq[index]
+    rnd = random.random() * weight_sum
+    for i, w in enumerate(weights):
+        rnd -= w
+        if rnd < 0:
+            return seq[i]
 
 
 def human_format(number: float) -> str:
