@@ -1,19 +1,19 @@
-import helper
+from helpers import helper, curses_helper
 from generation_models.general_model import GenModel
 
 
 def __write_input_request(var_name, value, end=''):
-    import curses_helper
     curses_helper.write_formatted("  '{0, 2}' value ({1, 3}): " + end, var_name, value)
 
 
 def complete(model: GenModel, error_message: str = ''):
-    import curses_helper
-
     helper.flush_input()
 
-    caption: str = f'Enter {model.name} parameters:'
+    caption: str = f'Enter the parameters of the {model.name}:'
     parameters: dict = model.parameters
+
+    # init curses_helper
+    curses_helper.init()
 
     # write an error message if it exists
     curses_helper.write_formatted("{0}", error_message)
@@ -28,17 +28,18 @@ def complete(model: GenModel, error_message: str = ''):
             # we should check whether the user's input is correct
             while 1:
                 __write_input_request(k, v['value'])
-                value = curses_helper.read()
+                value = curses_helper.read(allow_single_dot=isinstance(v['value'], float))
                 if value == '':
                     value = str(v['value'])
                     curses_helper.move_line_home(-1)
                     __write_input_request(k, value, end=value + '\n')
                     break
-                if not value.isnumeric():  # notify a user that input value is not correct
+                # notify a user that input value is not correct
+                if helper.safe_cast(value, int, None) is None and helper.safe_cast(value, float, None) is None:
                     curses_helper.move_line_home(-1)
 
                     curses_helper.write_formatted("{0,4} {1,1}", chr(9679),
-                                                  "Input value must be a positive integer number! Press Enter to try again.")
+                                                  "Input value must be a positive number! Press Enter to try again.")
                     curses_helper.read()
                     curses_helper.move_line_home(-1)
                 else:

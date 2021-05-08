@@ -9,11 +9,23 @@ class GenModel:
             'constant': False
         }
     }
+    params_translation: dict = {
+        'rho': 'ρ',
+        'nu': 'ν',
+        'eta': 'η'
+    }
 
     def __init__(self, name: str, parameters: dict):
         self.name = name
         self.parameters = parameters
         self.param_conditions: dict = {}
 
-    def generate(self) -> list:
+    def get_params_for_plot(self) -> dict:
+        result = {}
+        for k, v in self.parameters.items():
+            if k not in self.params_general:
+                result[GenModel.params_translation[k]] = v['value']
+        return result
+
+    def generate(self) -> (list, dict):
         pass

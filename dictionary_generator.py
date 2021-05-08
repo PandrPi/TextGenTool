@@ -5,7 +5,7 @@ import time
 import easygui
 from tqdm import tqdm
 
-import helper
+from helpers import helper
 
 new_line_pattern = re.compile(r"\s")
 clean_pattern = re.compile(r"([^'’a-zA-Z ]’?'?)")
@@ -42,7 +42,7 @@ def create_dictionary_json():
 
     words_dict: dict = {"words": [w for w in words if len(w) < 15], 'symbols': list(' abcdefghijklmnopqrstuvwxyz')}
 
-    dictionary_path = helper.get_filename_from_dialog('Select files for dictionary', '*.json', ["*.json"], False)
+    dictionary_path = helper.get_path_from_dialog('Select files for dictionary', '*.json', ["*.json"], False)
 
     with open(dictionary_path, "w") as fp:
         json.dump(words_dict, fp, indent=4)

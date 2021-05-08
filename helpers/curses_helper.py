@@ -1,14 +1,19 @@
 import curses
 
-from helper import safe_cast
+from helpers.helper import safe_cast
 
-src: curses.window = curses.initscr()
-src.scrollok(1)
-curses.start_color()
-curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLACK)
-curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)
-curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_BLACK)
-curses.init_pair(4, curses.COLOR_RED, curses.COLOR_BLACK)
+src: curses.window
+
+
+def init():
+    global src
+    src = curses.initscr()
+    src.scrollok(1)
+    curses.start_color()
+    curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLACK)
+    curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)
+    curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_BLACK)
+    curses.init_pair(4, curses.COLOR_RED, curses.COLOR_BLACK)
 
 
 def close():
@@ -63,7 +68,7 @@ def write_formatted(format_str: str, *args):
     src.refresh()
 
 
-def read(caption: str = ''):
+def read(caption: str = '', allow_single_dot: bool = False):
     write(caption)
     curses.cbreak()
     curses.noecho()
@@ -76,7 +81,8 @@ def read(caption: str = ''):
             if len(input_str) != 0:
                 src.addstr("\b \b")
                 input_str = input_str[:-1]
-        elif (c_str.isprintable() and c_str.isdecimal()) or c == 10:
+        elif (c_str.isprintable() and c_str.isdecimal()) or c == 10 or (
+                allow_single_dot and ('.' not in input_str and c_str == '.')):
             src.addstr(c_str)
             input_str += c_str
 

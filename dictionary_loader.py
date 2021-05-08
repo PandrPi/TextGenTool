@@ -4,7 +4,7 @@ import os
 
 from tqdm import tqdm
 
-import helper
+from helpers import helper
 import selection_menu
 from constants import *
 
@@ -21,17 +21,22 @@ def load_dictionary(dictionary_path: str) -> dict:
     """
     data = {}
     try:
-        data_lines: list = []
-        num_file = sum([1 for _ in open(dictionary_path, 'r')])
-        with open(dictionary_path, 'r') as f:
-            for idx, line in tqdm(enumerate(f), total=num_file, desc='Dictionary loading', unit='Lines',
-                                  unit_scale=True):
-                data_lines.append(line.strip())
+        f = open(dictionary_path, 'r')
+        file_lines = f.readlines()
+        data_lines: list = [''] * len(file_lines)
+        for idx, line in tqdm(enumerate(file_lines), total=len(file_lines), desc='Dictionary loading', unit='Lines',
+                              unit_scale=True):
+            data_lines[idx] = line
         data = json.loads(''.join(data_lines))
+        f.close()
         print(f'Dictionary loaded {Fore.GREEN}successfully{Fore.WHITE}!\n')
     except Exception as e:
-        print(f'Dictionary loading {Fore.RED}failed{Fore.WHITE}! Choose another dictionary file or try again.\n')
-        logging.exception(e)
+        print(f'Dictionary loading {Fore.RED}failed{Fore.WHITE}! Choose another dictionary file or try again.')
+        if isinstance(e, FileNotFoundError):
+            print(f"{Fore.RED}Error: {Fore.WHITE}{e.strerror}: '{e.filename}'")
+        else:
+            logging.exception(e)
+        print()
 
     return data
 
@@ -41,7 +46,7 @@ def get_dictionary_path() -> str:
     Shows file dialog window in which the user can select the file to load the dictionary from
     :return: path of selected file
     """
-    return helper.get_filename_from_dialog('Select dictionary file', '*.json', ["*.json"])
+    return helper.get_path_from_dialog('Select dictionary file', '*.json', ["*.json"])
 
 
 def show_dictionary_selection_menu(**kwargs):
@@ -58,8 +63,9 @@ def show_dictionary_selection_menu(**kwargs):
         file_path = get_dictionary_path()
     dictionary_data = load_dictionary(file_path)
 
-    while dictionary_data == {}:
-        show_dictionary_selection_menu()
+    if dictionary_data == {}:
+        show_dictionary_selection_menu(**kwargs)
+        return
 
     dictionary_words = dictionary_data['words']
     dictionary_symbols = dictionary_data['symbols']

@@ -1,8 +1,10 @@
 import copy
 import random
 
+import numpy as np
+
 import dictionary_loader
-import helper
+from helpers import helper
 from generation_models.general_model import GenModel
 
 
@@ -29,64 +31,47 @@ class PolyaUrn(GenModel):
 
         # this list contains only types (unique words/symbols)
         # randomly extract specified number of words from the dictionary
-        types_container = random.sample(dictionary_loader.dictionary_words, len(dictionary_loader.dictionary_words))
+        # types_container = dictionary_loader.dictionary_words.copy()
+        types_container = list(range(len(dictionary_loader.dictionary_words)))
+        max_types_index = len(types_container) - nu
+        random.shuffle(types_container)
 
         urn_list = [key for key in types_container[:urn_initial_size]]
-        urn_weights = [1 for _ in range(len(urn_list))]
-        urn_indices_list = [i for i in range(len(urn_list))]
+        urn_weights = np.array([1 for _ in range(len(urn_list))], dtype=np.int32)
         weights_sum = sum(urn_weights)
-        urn_indices = {urn_list[i]: i for i in range(len(urn_list))}
+        weights_local = np.ones(nu + 1, dtype=np.int32)
         dict_line = urn_initial_size
 
         out_unit_list = []  # contains a generated text as the list of units
-        text_tokens: dict = {}  # contains all the types that are presented in current text
+        text_tokens: set = set()  # contains all the types that are presented in current text
 
-        from time import time
-        time_sum = 0
-
-        for _ in helper.model_range(desired_text_length, desc=self.name):
-            start = time()
-            random_unit = helper.weighted_random(urn_list, urn_weights, weights_sum)
-            time_sum += time() - start
+        for i in helper.model_range(desired_text_length, desc=self.name):
+            urn_index = helper.weighted_random(urn_weights, weights_sum)
+            random_unit = urn_list[urn_index]
             out_unit_list.append(random_unit)
 
-            if random_unit in text_tokens:
-                text_tokens[random_unit] += rho
+            urn_weights[urn_index] += rho
+            weights_sum += rho
 
-                urn_index = urn_indices[random_unit]
-                urn_weights[urn_index] += rho
-                weights_sum += rho
-
-                # for _ in range(rho):
-                #     urn_list.append(random_unit)
-            else:
+            if random_unit not in text_tokens:
                 # we should check the size of types_container in order to prevent the app from crash
-                if dict_line > len(types_container) - nu:
+                if dict_line > max_types_index:
                     helper.print_type_container_is_empty_message(desired_text_length, len(out_unit_list))
                     break
 
-                text_tokens[random_unit] = rho + 1
-
-                urn_index = urn_indices[random_unit]
-                urn_weights[urn_index] += rho
-                weights_sum += rho
+                text_tokens.add(random_unit)
 
                 # update urn with totally new units taken from types_container
                 for _ in range(nu + 1):
                     new_unit = types_container[dict_line]
                     dict_line += 1
                     urn_list.append(new_unit)
-
-                    urn_weights.append(1)
-                    weights_sum += 1
-                    urn_index = len(urn_list) - 1
-                    urn_indices[new_unit] = urn_index
-                    urn_indices_list.append(urn_index)
+                urn_weights = np.concatenate((urn_weights, weights_local), axis=None)
+                weights_sum += nu + 1
 
         types_container.clear()
         urn_list.clear()
+        del urn_weights
         text_tokens.clear()
-
-        print(time_sum)
 
         return out_unit_list

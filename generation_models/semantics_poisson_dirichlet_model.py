@@ -1,34 +1,19 @@
-import copy
 import random
 
 import numpy as np
+from numba.typed import List
 
 import dictionary_loader
-from generation_models.general_model import GenModel
 from helpers import helper
+from generation_models.semantics_polya_urn import PolyaUrnWithSemantics
 
 
-class PolyaUrnWithSemantics(GenModel):
+class PoissonDirechletModelWithSemantics(PolyaUrnWithSemantics):
     def __init__(self, name: str):
-        parameters = copy.deepcopy(GenModel.params_general)
-        parameters.update({
-            'rho': {
-                'value': 10,
-                'constant': False
-            },
-            'nu': {
-                'value': 5,
-                'constant': False
-            },
-            'eta': {
-                'value': 1.0,
-                'constant': False
-            }
+        super().__init__(name)
+        self.param_conditions.update({
+            'rho > (nu - 1)': "{0}['rho']['value'] > {0}['nu']['value'] - 1"
         })
-        super().__init__(name, parameters)
-        self.param_conditions: dict = {
-            '0.0 < eta <= 1.0': "0.0 < {0}['eta']['value'] <= 1.0"
-        }
 
     def generate(self) -> list:
         urn_initial_size = self.parameters['urn_initial_size']['value']
@@ -36,6 +21,7 @@ class PolyaUrnWithSemantics(GenModel):
         rho = self.parameters['rho']['value']
         nu = self.parameters['nu']['value']
         eta = self.parameters['eta']['value']
+        new_rho = rho - nu - 1
 
         # this list contains only types (unique words/symbols)
         # randomly extract specified number of words from the dictionary
@@ -72,16 +58,19 @@ class PolyaUrnWithSemantics(GenModel):
             random_unit = urn_list[urn_index]
             out_unit_list.append(random_unit)
 
-            urn_weights[urn_index] += rho
-            normal_weights_sum += rho
-
-            if random_unit not in text_tokens:
+            if random_unit in text_tokens:
+                urn_weights[urn_index] += rho
+                normal_weights_sum += rho
+            else:
                 # we should check the size of types_container in order to prevent the app from crash
                 if dict_line > max_types_index:
                     helper.print_type_container_is_empty_message(desired_text_length, len(out_unit_list))
                     break
 
                 text_tokens.add(random_unit)
+
+                urn_weights[urn_index] += new_rho
+                normal_weights_sum += new_rho
 
                 current_label = previous_label + 1
                 label_origins[current_label] = random_unit
