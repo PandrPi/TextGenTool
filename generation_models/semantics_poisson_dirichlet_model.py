@@ -1,11 +1,10 @@
 import random
 
 import numpy as np
-from numba.typed import List
 
-import dictionary_loader
-from helpers import helper
+import vocabulary_loader
 from generation_models.semantics_polya_urn import PolyaUrnWithSemantics
+from helpers import helper
 
 
 class PoissonDirechletModelWithSemantics(PolyaUrnWithSemantics):
@@ -24,9 +23,9 @@ class PoissonDirechletModelWithSemantics(PolyaUrnWithSemantics):
         new_rho = rho - nu - 1
 
         # this list contains only types (unique words/symbols)
-        # randomly extract specified number of words from the dictionary
-        # types_container = dictionary_loader.dictionary_words.copy()
-        types_container = list(range(len(dictionary_loader.dictionary_words)))
+        # randomly extract specified number of words from the vocabulary
+        # types_container = vocabulary_loader.vocabulary_words.copy()
+        types_container = list(range(len(vocabulary_loader.vocabulary_words)))
         max_types_index = len(types_container) - nu
         random.shuffle(types_container)
 

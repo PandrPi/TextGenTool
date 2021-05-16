@@ -2,7 +2,7 @@ import random
 
 import numpy as np
 
-import dictionary_loader
+import vocabulary_loader
 from generation_models.polya_urn import PolyaUrn
 from helpers import helper
 
@@ -22,8 +22,8 @@ class PoissonDirechletModel(PolyaUrn):
         new_rho = rho - nu - 1
 
         # this list contains only types (unique words/symbols)
-        # types_container = dictionary_loader.dictionary_words.copy()
-        types_container = list(range(len(dictionary_loader.dictionary_words)))
+        # types_container = vocabulary_loader.vocabulary_words.copy()
+        types_container = list(range(len(vocabulary_loader.vocabulary_words)))
         max_types_index = len(types_container) - nu
         random.shuffle(types_container)
 

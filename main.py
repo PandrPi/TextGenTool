@@ -1,8 +1,8 @@
 import os
 
-import dictionary_loader
 import parameters_menu
 import selection_menu
+import vocabulary_loader
 from constants import *
 from generation_models.general_model import GenModel
 from generation_models.poisson_dirichlet_model import PoissonDirechletModel
@@ -26,21 +26,8 @@ from helpers.stopwatch import Stopwatch
 
 
 if __name__ == "__main__":
-
-    # # filename = helper.get_path_from_dialog('test', '*.txt', file_types=['*.txt'])
-    # # filename = 'C:\\Users\\Andrushko\\Desktop\\my texts\\+lotr_en.txt'
-    # filename = 'C:\\Users\\Andrushko\\Desktop\\polya_urn__text_length[1M]_rho[2]_nu[1].txt'
-    # words = []
-    #
-    # with open(filename, 'r', encoding='utf8') as f:
-    #     for i in f.readlines():
-    #         words += i.split(' ')
-    #
-    # watch = Stopwatch.start_new('Time: {0} secs')
-    # plot_drawer.draw_taylor_law(helper.list_to_indices(words), {'rho': 5}, 100)
-    # watch.display_time()
-
-    model: GenModel
+    # we need to initialize or model with some value or None
+    model: GenModel = GenModel('Default not implemented model', {})
     models: list = [
         PolyaUrn('Polya Urn model'),
         PolyaUrnClassic('Classic Polya Urn model'),
@@ -49,9 +36,13 @@ if __name__ == "__main__":
         PoissonDirechletModelWithSemantics('Poisson-Dirichlet model with semantics'),
     ]
 
+    external_filename: str = ''
+    open_external_file_title = 'Open an external text file from storage'
+    model_selection_menu_options = [m.name for m in models] + [open_external_file_title]
+
     menu_method_list = [
-        lambda **kwargs: dictionary_loader.show_dictionary_selection_menu(**kwargs),
-        lambda **kwargs: selection_menu.choose(model_selection_menu_title, [m.name for m in models], **kwargs),
+        lambda **kwargs: vocabulary_loader.show_vocabulary_selection_menu(**kwargs),
+        lambda **kwargs: selection_menu.choose(model_selection_menu_title, model_selection_menu_options, **kwargs),
         lambda **kwargs: selection_menu.choose(analysis_menu_title, analysis_menu_options, **kwargs)
     ]
 
@@ -60,9 +51,9 @@ if __name__ == "__main__":
     statistics_data: dict = {}
 
     text_analysis_methods = [
-        lambda: plot_drawer.draw_zipf_law(helper.get_word_frequencies(generated_units), model.get_params_for_plot()),
-        lambda: plot_drawer.draw_heaps_law(generated_units, model.get_params_for_plot()),
-        lambda: plot_drawer.draw_taylor_law(helper.list_to_indices(generated_units), model.get_params_for_plot()),
+        lambda: plot_drawer.draw_zipf_law(statistics_data['zipf'], model, external_filename),
+        lambda: plot_drawer.draw_heaps_law(statistics_data['heaps'], model, external_filename),
+        lambda: plot_drawer.draw_taylor_law(statistics_data['taylor'], model, external_filename),
         lambda: helper.save_statistics(statistics_data),
         lambda: helper.save_generated_text_to_file(model, generated_units)
     ]
@@ -83,12 +74,20 @@ if __name__ == "__main__":
 
         # check weather the current menu is a model selection menu
         if current_index == 1:
-            model = [i for i in models if i.name == choice][0]  # set the chosen model as current model
-            parameters_menu.complete(model)
-            watch1 = Stopwatch.start_new('Total time: {0} secs\n')
-            generated_units = model.generate()
-            watch1.display_time()
-            # helper.calculate_statistics(generated_units)
+            if choice == open_external_file_title:
+                # open an external text file
+                generated_units, external_filename = helper.get_units_from_external_text_file()
+            else:
+                model = [i for i in models if i.name == choice][0]  # set the chosen model as current model
+                external_filename = ''
+                parameters_menu.complete(model)
+                watch1 = Stopwatch.start_new('Total time: {0} secs\n')
+                generated_units = model.generate()  # generate text by model
+                watch1.display_time()
+
+            if len(generated_units) != 0:
+                statistics_data = helper.calculate_statistics(helper.list_to_indices(generated_units),
+                                                              taylor_points=150)
 
         # check weather the current menu is a text analysis menu
         if current_index == 2:

@@ -1,6 +1,8 @@
 import logging
 import random
+import re
 from collections import Counter
+from os import path
 
 import easygui
 import numpy as np
@@ -9,8 +11,10 @@ from numba import jit
 from tqdm import trange
 
 import constants
-import dictionary_loader
-from helpers.directory_selector import show_directory_box
+import vocabulary_loader
+from helpers.path_selector import show_directory_box, show_file_open_box
+from helpers.stopwatch import Stopwatch
+from settings_helper import Settings
 
 
 @jit(fastmath=True)
@@ -60,6 +64,28 @@ def get_etas_array(eta, array_size, indices_of_one) -> (np.array, np.float32):
     return etas
 
 
+def get_units_from_external_text_file() -> (list, str):
+    clean_pattern1 = re.compile(r"([^'’a-zA-Z- ])|([\s]{2,})")
+    clean_pattern2 = re.compile(r"([\s]+)")
+
+    filename = get_path_from_dialog('Select text file', default='*.txt', file_types=["*.txt"])
+    if filename == '':
+        return [], ''
+
+    try:
+        text = read_text_file(filename)
+        if isinstance(text, Exception):
+            raise text
+        text = re.sub(clean_pattern1, ' ', text)
+        text = re.sub(clean_pattern2, ' ', text).strip()
+        units = text.split(' ')
+    except Exception as e:
+        logging.exception(e)
+        return [], ''
+
+    return units, path.splitext(path.basename(filename))[0]
+
+
 def do_taylor_iteration(w_s: int, text_size: int, data_array):
     d_sizes = np.empty(text_size // w_s, dtype=np.float32)
     d_sizes.fill(0)
@@ -75,8 +101,8 @@ def do_taylor_iteration(w_s: int, text_size: int, data_array):
 def do_taylor(data_array, text_size, points_number):
     # max window size is only 5% of the text length
     max_window_size = int(text_size * 0.05)
-    # starts with 10000 windows
-    window_initial_size = text_size // 10000
+    # starts with 10000 windows, but if text_size is smaller then initial size of window will be 10
+    window_initial_size = max(text_size // 10000, 10)
     increment_size = int((max_window_size - window_initial_size) // (points_number - 1))
 
     d_sizes = np.empty(points_number, dtype=np.float32)
@@ -120,7 +146,7 @@ def save_generated_text_to_file(model, generated_units: list):
                                     ["*.txt"], open_dialog=False)
     if filename != '':
         # convert indices to list of words
-        words = indices_to_values(generated_units, dictionary_loader.dictionary_words)
+        words = indices_to_values(generated_units, vocabulary_loader.vocabulary_words)
         # save generated text to file
         write_text_to_file(filename, get_text_from_list(words))
 
@@ -160,8 +186,12 @@ def write_text_to_file(filename: str, text: str):
 
 
 def read_text_file(filename: str) -> str:
-    with open(filename, 'r', errors='ignore') as file:
-        return file.read().strip()
+    try:
+        with open(filename, 'r', errors='ignore') as file:
+            return file.read().strip()
+    except Exception as e:
+        logging.exception(e)
+        return e
 
 
 def get_word_frequencies(word_list: list) -> dict:
@@ -174,41 +204,56 @@ def get_word_frequencies(word_list: list) -> dict:
     return dict(Counter(word_list).most_common())
 
 
-def calculate_statistics(text_units: list, heaps_points: int = 10000, taylor_points: int = 150):
+def calculate_statistics(data: list, taylor_points: int = 150):
+    print('{0}Calculating text statistics...{1}'.format(Fore.YELLOW, Fore.WHITE))
+    watch = Stopwatch.start_new()
+    watch.display_format = '{0}Text statistics calculated in {1}{{0}}{2} seconds!{3}\n'.format(Fore.YELLOW, Fore.RED,
+                                                                                               Fore.YELLOW, Fore.WHITE)
     statistics_data: dict = {}
 
+    # Taylor data
+    text_size = len(data)
+    word_array = np.asarray(data)
+    vocabulary_sizes, std_values, window_sizes = do_taylor(word_array, text_size, taylor_points)
+    statistics_data['taylor'] = {
+        'x': vocabulary_sizes,
+        'y': std_values
+    }
+
     # Heaps data
-    window_position = 0
-    total_world_numbers, dictionary_sizes = [], []
-    word_set = set()
-    increment_size: int = len(text_units) // heaps_points
-    window_size: int = increment_size
-
-    while window_size < len(text_units):
-        word_set |= set(text_units[window_position:window_size])
-
-        total_world_numbers.append(window_size)
-        dictionary_sizes.append(len(word_set))
-
-        window_size += increment_size
-        window_position += increment_size
     statistics_data['heaps'] = {
-        'x': total_world_numbers,
-        'y': dictionary_sizes
+        'x': window_sizes,
+        'y': vocabulary_sizes
     }
 
     # Zipf data
-    word_frequencies = get_word_frequencies(text_units)
+    word_frequencies = get_word_frequencies(data)
     statistics_data['zipf'] = {
-        'x': list(range(1, len(word_frequencies) + 1)),
-        'y': list(word_frequencies.values())
+        'x': np.array(range(1, len(word_frequencies) + 1)),
+        'y': np.array([*word_frequencies.values()])
     }
 
-    # Taylor data
+    watch.display_time()
+    return statistics_data
 
 
 def save_statistics(statistics_data: dict):
-    pass
+    folder_path: str = get_path_from_dialog('Select folder where statistics data fill be saved', folder_mode=True)
+
+    if folder_path == '':
+        return
+
+    zipf_filename = path.join(folder_path, 'zipf_data.txt')
+    heaps_taylor_filename = path.join(folder_path, 'heaps_taylor_data.txt')
+
+    zipf_data = statistics_data['zipf']
+    matrix_data = np.asarray([zipf_data['x'], zipf_data['y']]).T
+    np.savetxt(zipf_filename, matrix_data, delimiter="\t", fmt='%e', header='Rank\t\tFrequency')
+
+    heaps_data = statistics_data['heaps']
+    taylor_data = statistics_data['taylor']
+    matrix_data = np.asarray([heaps_data['x'], heaps_data['y'], taylor_data['y']]).T
+    np.savetxt(heaps_taylor_filename, matrix_data, delimiter="\t", fmt='%e', header='Windows\t\tVocabulary\tStdValues')
 
 
 def clamp(value, min_limit, max_limit):
@@ -233,7 +278,7 @@ def model_range(*args, **kwargs):
 
 
 def print_type_container_is_empty_message(desired_text_length, text_length):
-    print(f"\n{Fore.YELLOW}IMPORTANT{Fore.WHITE}: Cannot reach desired text length, the dictionary is empty.\n"
+    print(f"\n{Fore.YELLOW}IMPORTANT{Fore.WHITE}: Cannot reach desired text length, the vocabulary is empty.\n"
           f"Generated text length is {text_length}/{desired_text_length} units. Choose smaller text size or try again.")
 
 
@@ -279,11 +324,17 @@ def get_path_from_dialog(title: str, default: str = '*', file_types: list = None
     """
     selected_path = None
     max_closes: int = 2
-    file_method = show_directory_box if folder_mode else easygui.fileopenbox if open_dialog else easygui.filesavebox
+
+    settings_key = 'last_opened_folder' if folder_mode else 'last_opened_file' if open_dialog else 'last_saved_file'
+    file_method = show_directory_box if folder_mode else show_file_open_box if open_dialog else easygui.filesavebox
+    extension = '' if file_types is None else file_types[0].replace('*', '')
+    default_local = Settings.get_value(settings_key, extension)
+    default = default_local if default_local is not None else default
+
     for i in range(max_closes):
         attempts = max_closes - i
-        selected_path = file_method(title=title + " ({0} attempt{1} left)".format(attempts, 's'[:attempts ^ 1]),
-                                    default=default, filetypes=file_types)
+        title = title + " ({0} attempt{1} left)".format(attempts, 's'[:attempts ^ 1])
+        selected_path = file_method(title=title, default=default, filetypes=file_types)
         if selected_path is not None:
             break
 
@@ -292,5 +343,8 @@ def get_path_from_dialog(title: str, default: str = '*', file_types: list = None
             extension = file_types[0].replace('*', '')
             if selected_path.endswith(extension) is False:
                 selected_path += extension
+        else:
+            extension = ''
+        Settings.set_value(settings_key, selected_path, extension)
         return selected_path
     return ''
