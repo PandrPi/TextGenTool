@@ -55,7 +55,7 @@ if __name__ == "__main__":
         lambda: plot_drawer.draw_heaps_law(statistics_data['heaps'], model, external_filename),
         lambda: plot_drawer.draw_taylor_law(statistics_data['taylor'], model, external_filename),
         lambda: helper.save_statistics(statistics_data),
-        lambda: helper.save_generated_text_to_file(model, generated_units)
+        lambda: helper.save_generated_text_to_file(model, generated_units, external_filename)
     ]
 
     # main loop

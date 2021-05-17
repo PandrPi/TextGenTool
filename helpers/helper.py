@@ -157,15 +157,18 @@ def indices_to_values(indices: list, values: list) -> list:
     return [values[i] for i in indices]
 
 
-def save_generated_text_to_file(model, generated_units: list):
+def save_generated_text_to_file(model, generated_units: list, external_filename: str):
     # get default filename generated from the parameters of the model and generated text
     default_filename = get_filename_from_generation_params(model.name, len(generated_units), model.parameters) + '.txt'
     # ask user to select the resulting filename in the dialog window
     filename = get_path_from_dialog('Save the generated text to file', default_filename,
                                     ["*.txt"], open_dialog=False)
     if filename != '':
-        # convert indices to list of words
-        words = indices_to_values(generated_units, vocabulary_loader.vocabulary_words)
+        if external_filename == '':
+            # convert indices to list of words
+            words = indices_to_values(generated_units, vocabulary_loader.vocabulary_words)
+        else:
+            words = generated_units
         # save generated text to file
         write_text_to_file(filename, get_text_from_list(words))
 
