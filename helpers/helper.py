@@ -229,7 +229,7 @@ def get_word_frequencies(word_list: list) -> dict:
 def calculate_statistics(data: list, taylor_points: int = 150):
     print('{0}Calculating text statistics...{1}'.format(Fore.YELLOW, Fore.WHITE))
     watch = Stopwatch.start_new()
-    watch.display_format = '{0}Text statistics calculated in {1}{{0}}{2} seconds!{3}\n'.format(Fore.YELLOW, Fore.RED,
+    watch.display_format = '{0}Text statistics calculated in {1}{{0}}{2} seconds!{3}\n'.format(Fore.YELLOW, Fore.GREEN,
                                                                                                Fore.YELLOW, Fore.WHITE)
     statistics_data: dict = {}
 
