@@ -1,7 +1,10 @@
+import concurrent
 import logging
+import math
 import random
 import re
 from collections import Counter
+from concurrent.futures.thread import ThreadPoolExecutor
 from os import path
 
 import easygui
@@ -86,14 +89,14 @@ def get_units_from_external_text_file() -> (list, str):
     return units, path.splitext(path.basename(filename))[0]
 
 
-def do_taylor_iteration(w_s: int, text_size: int, data_array):
-    d_sizes = np.empty(text_size // w_s, dtype=np.float32)
+def do_taylor_iteration(w_s: int, text_size: int, data_array, window_step_divider: int = 6):
+    points_number = math.ceil(((text_size // w_s) * w_s - w_s) / (w_s // window_step_divider))
+    d_sizes = np.empty(points_number, dtype=np.float32)
     d_sizes.fill(0)
-    for index, w_p in enumerate(range(0, (text_size // w_s) * w_s, w_s)):
-        data_slice = data_array[w_p:w_p + w_s]
-        test = np.bincount(data_slice)
-        d_sizes[index] = np.count_nonzero(test)
 
+    for index, w_p in enumerate(range(0, (text_size // w_s) * w_s - w_s, w_s // window_step_divider)):
+        data_slice = data_array[w_p:w_p + w_s]
+        d_sizes[index] = np.count_nonzero(np.bincount(data_slice))
     d_average = np.average(d_sizes)
     return d_average, np.std(d_sizes), w_s
 
@@ -103,17 +106,33 @@ def do_taylor(data_array, text_size, points_number):
     max_window_size = int(text_size * 0.05)
     # starts with 10000 windows, but if text_size is smaller then initial size of window will be 10
     window_initial_size = max(text_size // 10000, 10)
+    points_number = min(points_number, max_window_size - window_initial_size)
     increment_size = int((max_window_size - window_initial_size) // (points_number - 1))
 
     d_sizes = np.empty(points_number, dtype=np.float32)
     std_values = np.empty(points_number, dtype=np.float32)
     w_sizes = np.empty(points_number, dtype=np.int32)
 
+    arguments = []
     for i, window_size in enumerate(range(window_initial_size, max_window_size, increment_size)):
         if i >= points_number:
             break
-        d_sizes[i], std_values[i], w_sizes[i] = do_taylor_iteration(window_size, text_size, data_array)
+        arguments.append([window_size, text_size, data_array])
 
+    futures = []
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        for args_local in arguments:
+            futures.append(executor.submit(do_taylor_iteration, *args_local))
+
+    futures, _ = concurrent.futures.wait(futures)
+    for i, future in enumerate(futures):
+        d_sizes[i], std_values[i], w_sizes[i] = future.result()
+
+    # in some cases the last elements of these arrays can contain some incorrect data, so we need to remove it
+    if w_sizes[-1] != w_sizes[-2] + increment_size:
+        d_sizes = d_sizes[:-1]
+        std_values = std_values[:-1]
+        w_sizes = w_sizes[:-1]
     return d_sizes, std_values, w_sizes
 
 

@@ -87,7 +87,7 @@ if __name__ == "__main__":
 
             if len(generated_units) != 0:
                 statistics_data = helper.calculate_statistics(helper.list_to_indices(generated_units),
-                                                              taylor_points=150)
+                                                              taylor_points=200)
 
         # check weather the current menu is a text analysis menu
         if current_index == 2:
