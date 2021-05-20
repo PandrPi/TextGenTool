@@ -22,7 +22,7 @@ from helpers.stopwatch import Stopwatch
 # TO BUILD AN EXE FILE OUT OF MAIN.PY USE THE FOLLOWING COMMAND IN TERMINAL:
 # pyinstaller --onefile --name TextGenTool main.py
 # OR
-# pyinstaller --name TextGenTool main.py
+# pyinstaller --noconfirm --name TextGenTool main.py
 
 
 if __name__ == "__main__":

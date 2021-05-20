@@ -1,10 +1,37 @@
+import ctypes
+import os
 import time
+from ctypes import windll, create_unicode_buffer
 
 import keyboard
 from colorama import Fore
 
-from helpers import helper
 from constants import selection_menu_additional_options
+from helpers import helper
+
+
+def can_handle_keyboard():
+    """
+    Checks whether the current process or its parent process is equal to the process whose window is the active windows
+    """
+    h_wnd = windll.user32.GetForegroundWindow()
+    length = windll.user32.GetWindowTextLengthW(h_wnd)
+    buf = create_unicode_buffer(length + 1)
+    windll.user32.GetWindowTextW(h_wnd, buf, length + 1)
+    fwt = buf.value if buf.value else None
+
+    lpdw_process_id = ctypes.c_ulong()
+    windll.user32.GetWindowThreadProcessId(h_wnd, ctypes.byref(lpdw_process_id))
+    focused_process_id = lpdw_process_id.value
+
+    return os.getpid() == focused_process_id or os.getppid() == focused_process_id or (
+                fwt is not None and 'PyCharm' in fwt)
+
+
+def perform_action(action):
+    print(can_handle_keyboard())
+    if can_handle_keyboard() is True:
+        action()
 
 
 def __print_option(index, option):
@@ -14,6 +41,7 @@ def __print_option(index, option):
 def choose(title: str, options: list, show_turn_back: bool = True, show_start_over: bool = True) -> str:
     """
     Shows menu, where user can choose one of the presented options
+
     :param title: Menu title
     :param options: List of options
     :param show_turn_back: If True a 'Turn back' option will be shown
@@ -24,7 +52,7 @@ def choose(title: str, options: list, show_turn_back: bool = True, show_start_ov
 
     print(f"{Fore.GREEN + chr(9679)} {Fore.WHITE + title}")
     for i in range(0, len(options)):
-        keyboard.add_hotkey(str(i + 1), lambda index=i: selected_options.append(options[index]))
+        keyboard.add_hotkey(str(i + 1), lambda index=i: perform_action(lambda: selected_options.append(options[index])))
         __print_option(i + 1, options[i])
 
     if show_turn_back:

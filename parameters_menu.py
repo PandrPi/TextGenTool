@@ -1,5 +1,5 @@
-from helpers import helper, curses_helper
 from generation_models.general_model import GenModel
+from helpers import helper, curses_helper
 
 
 def __write_input_request(var_name, value, end=''):
