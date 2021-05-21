@@ -29,7 +29,6 @@ def can_handle_keyboard():
 
 
 def perform_action(action):
-    print(can_handle_keyboard())
     if can_handle_keyboard() is True:
         action()
 
