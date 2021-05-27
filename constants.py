@@ -6,6 +6,7 @@ analysis_menu_options = [
     "Show a plot of Zipf's law",
     "Show a plot of Heaps's law",
     "Show a plot of Taylor's law",
+    "Show a plot of all laws",
     "Save the calculated statistics to a file",
     "Save the generated text to a file",
 ]

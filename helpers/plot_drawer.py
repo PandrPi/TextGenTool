@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib import gridspec
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from scipy import stats
@@ -39,22 +40,21 @@ def draw_regression_curves(ax, x, y, use_nonlinear_regression=True):
             label="y={0}*x+{1}, R={2}%".format(round(a, 2), round(b, 2), fit_quality))
 
 
-def basic_plot_draw(plot_data: dict, x_label: str, y_label: str, scatter_label: str, plot_title: str,
-                    use_nonlinear_regression=True):
+def basic_plot_draw(fig: Figure, ax: Axes, plot_data: dict, x_label: str, y_label: str, scatter_label: str,
+                    plot_title: str, use_nonlinear_regression: bool = True, show_plot: bool = True):
     """
     Draws the data inside the plot
 
+    :param ax: Figure to use
+    :param fig: Axis to use
     :param plot_data: A dictionary that contains X and Y data
     :param x_label: Label for x axis
     :param y_label: Label for y axis
     :param scatter_label: label of scatter plot inside the Legends
     :param plot_title: Plot title
     :param use_nonlinear_regression: Will nonlinear fitting curve be presented on plot
+    :param show_plot: Will the plot window be shown
     """
-
-    fig: Figure
-    ax: Axes
-    fig, ax = plt.subplots()
 
     x = plot_data['x']
     y = plot_data['y']
@@ -78,14 +78,14 @@ def basic_plot_draw(plot_data: dict, x_label: str, y_label: str, scatter_label: 
     ax.set_yscale('log')
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
-
-    fig.canvas.mpl_connect('resize_event', lambda event: (fig.tight_layout(), fig.canvas.draw()))
-    fig.canvas.manager.set_window_title('Plot window')
-
     ax.legend(prop={'size': 11})
+    ax.set_title(plot_title)
     fig.tight_layout()
-    plt.title(plot_title)
-    plt.show()
+
+    if show_plot:
+        fig.canvas.mpl_connect('resize_event', lambda event: (fig.tight_layout(), fig.canvas.draw()))
+        fig.canvas.manager.set_window_title('Plot window')
+        plt.show()
 
 
 def get_plot_label_from_parameters(model: GenModel, external_filename: str) -> str:
@@ -107,9 +107,13 @@ def draw_zipf_law(data: dict, model: GenModel, external_filename: str):
     :param external_filename: A name of text file which was used to calculate plot data
     """
 
+    fig: Figure
+    ax: Axes
+    fig, ax = plt.subplots()
+
     label = get_plot_label_from_parameters(model, external_filename)  # the label of resulting plot in Legends
 
-    basic_plot_draw(data, 'Rank', 'Frequency', label, "Zipf's law", use_nonlinear_regression=False)
+    basic_plot_draw(fig, ax, data, 'Rank', 'Frequency', label, "Zipf's law", use_nonlinear_regression=False)
 
 
 def draw_heaps_law(data: dict, model: GenModel, external_filename: str):
@@ -121,9 +125,13 @@ def draw_heaps_law(data: dict, model: GenModel, external_filename: str):
     :param external_filename: A name of text file which was used to calculate plot data
     """
 
+    fig: Figure
+    ax: Axes
+    fig, ax = plt.subplots()
+
     label = get_plot_label_from_parameters(model, external_filename)  # the label of resulting plot in Legends
 
-    basic_plot_draw(data, 'Total number of words', 'Number of unique words', label, "Heaps' law")
+    basic_plot_draw(fig, ax, data, 'Total number of words', 'Number of unique words', label, "Heaps' law")
 
 
 def draw_taylor_law(data: dict, model: GenModel, external_filename: str):
@@ -137,6 +145,42 @@ def draw_taylor_law(data: dict, model: GenModel, external_filename: str):
     :param external_filename: A name of text file which was used to calculate plot data
     """
 
+    fig: Figure
+    ax: Axes
+    fig, ax = plt.subplots()
+
     label = get_plot_label_from_parameters(model, external_filename)  # the label of resulting plot in Legends
 
-    basic_plot_draw(data, 'Vocabulary size', 'σ(Vocabulary size)', label, "Taylor's law")
+    basic_plot_draw(fig, ax, data, 'Vocabulary size', 'σ(Vocabulary size)', label, "Taylor's law")
+
+
+def draw_all_laws(data: dict, model: GenModel, external_filename: str):
+    """
+    Draws the plots of three laws inside a single window
+
+    :param data: A dictionary that contains data about the correlation of average unique words number to a mean square
+     deviation of this number
+    :param model: The model which was used to generate the text
+    :param external_filename: A name of text file which was used to calculate plot data
+    """
+
+    label = get_plot_label_from_parameters(model, external_filename)  # the label of resulting plot in Legends
+    law_params = [
+        [data['zipf'], 'Rank', 'Frequency', label, "Zipf's law", False, False],
+        [data['heaps'], 'Total number of words', 'Number of unique words', label, "Heaps' law", True, False],
+        [data['taylor'], 'Vocabulary size', 'σ(Vocabulary size)', label, "Taylor's law", True, False],
+    ]
+
+    fig: Figure = plt.figure()
+    gs = gridspec.GridSpec(2, 2)
+    axes = [gs[0, 0], gs[0, 1], gs[1, :]]
+
+    for i in range(3):
+        ax = fig.add_subplot(axes[i])
+        basic_plot_draw(fig, ax, *law_params[i])
+        fig.tight_layout()
+
+    fig.canvas.mpl_connect('resize_event', lambda event: (fig.tight_layout(), fig.canvas.draw()))
+    fig.canvas.manager.set_window_title('Plot window')
+
+    plt.show()
