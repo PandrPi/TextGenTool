@@ -1,9 +1,10 @@
 import ctypes
 import os
 import time
-from ctypes import windll, create_unicode_buffer
+from ctypes import windll
 
 import keyboard
+import psutil
 from colorama import Fore
 
 from constants import selection_menu_additional_options
@@ -15,17 +16,22 @@ def can_handle_keyboard():
     Checks whether the current process or its parent process is equal to the process whose window is the active windows
     """
     h_wnd = windll.user32.GetForegroundWindow()
-    length = windll.user32.GetWindowTextLengthW(h_wnd)
-    buf = create_unicode_buffer(length + 1)
-    windll.user32.GetWindowTextW(h_wnd, buf, length + 1)
-    fwt = buf.value if buf.value else None
-
     lpdw_process_id = ctypes.c_ulong()
     windll.user32.GetWindowThreadProcessId(h_wnd, ctypes.byref(lpdw_process_id))
     focused_process_id = lpdw_process_id.value
 
-    return os.getpid() == focused_process_id or os.getppid() == focused_process_id or (
-                fwt is not None and 'PyCharm' in fwt)
+    focused_process = psutil.Process(focused_process_id)
+    recursive = 'explorer' not in focused_process.name().lower()
+    focused_process_children = [child.pid for child in focused_process.children(recursive=recursive)]
+
+    pid = os.getpid()
+    ppid = os.getppid()
+    result = pid in focused_process_children
+    result |= pid == focused_process_id
+    result |= ppid == focused_process_id
+    result |= 'pycharm' in focused_process.name().lower()
+
+    return result
 
 
 def perform_action(action):
@@ -56,10 +62,12 @@ def choose(title: str, options: list, show_turn_back: bool = True, show_start_ov
 
     if show_turn_back:
         __print_option(9, selection_menu_additional_options[0])
-        keyboard.add_hotkey('9', lambda: (selected_options.append(selection_menu_additional_options[0])))
+        keyboard.add_hotkey('9', lambda: perform_action(
+            lambda: selected_options.append(selection_menu_additional_options[0])))
     if show_start_over:
         __print_option(0, selection_menu_additional_options[1])
-        keyboard.add_hotkey('0', lambda: (selected_options.append(selection_menu_additional_options[1])))
+        keyboard.add_hotkey('0', lambda: perform_action(
+            lambda: selected_options.append(selection_menu_additional_options[1])))
 
     while len(selected_options) == 0:
         time.sleep(0.1)

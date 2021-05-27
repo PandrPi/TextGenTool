@@ -355,8 +355,8 @@ def get_path_from_dialog(title: str, default: str = '*', file_types: list = None
 
     for i in range(max_closes):
         attempts = max_closes - i
-        title = title + " ({0} attempt{1} left)".format(attempts, 's'[:attempts ^ 1])
-        selected_path = file_method(title=title, default=default, filetypes=file_types)
+        title_local = title + " ({0} attempt{1} left)".format(attempts, 's'[:attempts ^ 1])
+        selected_path = file_method(title=title_local, default=default, filetypes=file_types)
         if selected_path is not None:
             break
 
