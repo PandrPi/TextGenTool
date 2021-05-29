@@ -357,7 +357,14 @@ def get_path_from_dialog(title: str, default: str = '*', file_types: list = None
     file_method = show_directory_box if folder_mode else show_file_open_box if open_dialog else easygui.filesavebox
     extension = '' if file_types is None else file_types[0].replace('*', '')
     default_local = Settings.get_value(settings_key, extension)
-    default = default_local if default_local is not None else default
+
+    # if there exist path by extension in the settings and this method is not called to save the generated text
+    if default_local is not None and title != 'Save the generated text to file':
+        default = default_local
+
+    if default_local is not None and title == 'Save the generated text to file':
+        temp_folder = path.split(default_local)[0]
+        default = path.join(temp_folder, default)
 
     for i in range(max_closes):
         attempts = max_closes - i
