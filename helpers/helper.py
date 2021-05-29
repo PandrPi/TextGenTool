@@ -242,6 +242,12 @@ def calculate_statistics(data: list, taylor_points: int = 150):
         'y': std_values
     }
 
+    # Fluctuation data
+    statistics_data['fluctuation'] = {
+        'x': window_sizes,
+        'y': std_values
+    }
+
     # Heaps data
     statistics_data['heaps'] = {
         'x': window_sizes,

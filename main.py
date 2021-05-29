@@ -54,6 +54,7 @@ if __name__ == "__main__":
         lambda: plot_drawer.draw_zipf_law(statistics_data['zipf'], model, external_filename),
         lambda: plot_drawer.draw_heaps_law(statistics_data['heaps'], model, external_filename),
         lambda: plot_drawer.draw_taylor_law(statistics_data['taylor'], model, external_filename),
+        lambda: plot_drawer.draw_fluctuation_scaling(statistics_data['fluctuation'], model, external_filename),
         lambda: plot_drawer.draw_all_laws(statistics_data, model, external_filename),
         lambda: helper.save_statistics(statistics_data),
         lambda: helper.save_generated_text_to_file(model, generated_units, external_filename)

@@ -25,12 +25,14 @@ def get_nonlinear_fit_quality(x, y, popt) -> float:
 
 
 def draw_regression_curves(ax, x, y, use_nonlinear_regression=True):
+    print('\t', end='')
     if use_nonlinear_regression:
         regression, pcov1 = curve_fit(nonlin_curve_func, x, y, p0=(0.5, 1.0), method='lm', maxfev=20000)
         a, b = regression
         fit_quality = abs(round(get_nonlinear_fit_quality(x, y, regression) * 100, 4))
         ax.plot(x, nonlin_curve_func(x, a, b), c='#ff9113',
                 label="y=$\mathregular{{{0}*x^{{{1}}}}}$, R={2}%".format(round(a, 2), round(b, 2), fit_quality))
+        print("S_NLF {0}, R_NLF {1}, ".format(round(b, 3), fit_quality), end='')
 
     x_log = np.log10(x)
     regression = stats.linregress(x_log, np.log10(y))
@@ -38,6 +40,7 @@ def draw_regression_curves(ax, x, y, use_nonlinear_regression=True):
     fit_quality = abs(round(regression.rvalue * 100, 4))
     ax.plot(x, np.power(10, a * x_log + b), c='#57b812',
             label="y={0}*x+{1}, R={2}%".format(round(a, 2), round(b, 2), fit_quality))
+    print("S_LF {0}, R_LF {1}".format(round(a, 3), fit_quality))
 
 
 def basic_plot_draw(fig: Figure, ax: Axes, plot_data: dict, x_label: str, y_label: str, scatter_label: str,
@@ -59,6 +62,7 @@ def basic_plot_draw(fig: Figure, ax: Axes, plot_data: dict, x_label: str, y_labe
     x = plot_data['x']
     y = plot_data['y']
 
+    print('{0} regression data:'.format(plot_title))
     draw_regression_curves(ax, x, y, use_nonlinear_regression)
 
     # smooth = gaussian_filter1d(y, 70)
@@ -80,11 +84,13 @@ def basic_plot_draw(fig: Figure, ax: Axes, plot_data: dict, x_label: str, y_labe
     ax.set_ylabel(y_label)
     ax.legend(prop={'size': 11})
     ax.set_title(plot_title)
-    fig.tight_layout()
 
     if show_plot:
         fig.canvas.mpl_connect('resize_event', lambda event: (fig.tight_layout(), fig.canvas.draw()))
         fig.canvas.manager.set_window_title('Plot window')
+        fig.tight_layout()
+        print()
+
         plt.show()
 
 
@@ -154,6 +160,26 @@ def draw_taylor_law(data: dict, model: GenModel, external_filename: str):
     basic_plot_draw(fig, ax, data, 'Vocabulary size', 'σ(Vocabulary size)', label, "Taylor's law")
 
 
+def draw_fluctuation_scaling(data: dict, model: GenModel, external_filename: str):
+    """
+    Calculates and draws the correlation of window size to a mean square deviation of Vocabulary
+    (Fluctuation scaling)
+
+    :param data: A dictionary that contains data about the correlation of average unique words number to a mean square
+     deviation of this number
+    :param model: The model which was used to generate the text
+    :param external_filename: A name of text file which was used to calculate plot data
+    """
+
+    fig: Figure
+    ax: Axes
+    fig, ax = plt.subplots()
+
+    label = get_plot_label_from_parameters(model, external_filename)  # the label of resulting plot in Legends
+
+    basic_plot_draw(fig, ax, data, 'Window size', 'σ(Vocabulary size)', label, "Fluctuation scaling")
+
+
 def draw_all_laws(data: dict, model: GenModel, external_filename: str):
     """
     Draws the plots of three laws inside a single window
@@ -169,18 +195,20 @@ def draw_all_laws(data: dict, model: GenModel, external_filename: str):
         [data['zipf'], 'Rank', 'Frequency', label, "Zipf's law", False, False],
         [data['heaps'], 'Total number of words', 'Number of unique words', label, "Heaps' law", True, False],
         [data['taylor'], 'Vocabulary size', 'σ(Vocabulary size)', label, "Taylor's law", True, False],
+        [data['fluctuation'], 'Window size', 'σ(Vocabulary size)', label, "Fluctuation scaling", True, False],
     ]
 
     fig: Figure = plt.figure()
     gs = gridspec.GridSpec(2, 2)
-    axes = [gs[0, 0], gs[0, 1], gs[1, :]]
+    axes = [gs[0, 0], gs[0, 1], gs[1, 0], gs[1, 1]]
 
-    for i in range(3):
+    for i in range(len(law_params)):
         ax = fig.add_subplot(axes[i])
         basic_plot_draw(fig, ax, *law_params[i])
-        fig.tight_layout()
 
     fig.canvas.mpl_connect('resize_event', lambda event: (fig.tight_layout(), fig.canvas.draw()))
     fig.canvas.manager.set_window_title('Plot window')
+    fig.tight_layout()
+    print()
 
     plt.show()
