@@ -9,7 +9,7 @@ from helpers import helper
 
 
 class PolyaUrnWithSemantics(GenModel):
-    def __init__(self, name: str):
+    def __init__(self, name: str, short_name: str):
         parameters = copy.deepcopy(GenModel.params_general)
         parameters.update({
             'rho': {
@@ -25,7 +25,7 @@ class PolyaUrnWithSemantics(GenModel):
                 'constant': False
             }
         })
-        super().__init__(name, parameters)
+        super().__init__(name, short_name, parameters)
         self.param_conditions: dict = {
             '0.0 < eta <= 1.0': "0.0 < {0}['eta']['value'] <= 1.0"
         }
@@ -63,6 +63,7 @@ class PolyaUrnWithSemantics(GenModel):
         eta_weights.fill(eta)
         sum_of_multiplied_weights = helper.sum_of_multiplied_weights(urn_weights, normal_weights_sum, eta, np.empty(0))
         indices_of_one_weight: list = []
+        # indices_of_one_weight_local: np.array = np.zeros()
 
         out_unit_list = []  # contains a generated text as the list of units
         text_tokens: set = set()  # contains all the types that are presented in current text
@@ -105,7 +106,8 @@ class PolyaUrnWithSemantics(GenModel):
 
             # add the indices units that have the save label as the random_unit
             label_of_random_unit = unit_labels[random_unit]
-            [indices_of_one_weight.append(i) for i in labels[label_of_random_unit]]
+            for i in labels[label_of_random_unit]:
+                indices_of_one_weight.append(i)
             # add a unit index that is the origin of the random_unit label
             origin_of_random_unit_label = label_origins[label_of_random_unit]
             if origin_of_random_unit_label is not None:

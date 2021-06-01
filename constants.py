@@ -12,6 +12,10 @@ analysis_menu_options = [
     "Save the generated text to a file",
 ]
 
+# analysis algorithm menu consts
+analysis_algorithm_menu_title = 'Which text analysis algorithm you want to use?'
+analysis_algorithm_menu_options = ['Static definition (faster)', 'Dynamic definition (slower)']
+
 # model selection menu consts
 model_selection_menu_title = 'Which generation model do you want to use?'
 

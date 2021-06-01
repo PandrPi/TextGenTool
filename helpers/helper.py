@@ -67,12 +67,23 @@ def get_etas_array(eta, array_size, indices_of_one) -> (np.array, np.float32):
     return etas
 
 
+def show_welcome_message(models: list):
+    print('{0}!!!{1} Welcome to the TextGenTool  {0}!!!{2}\n'.format(Fore.YELLOW, Fore.GREEN, Fore.WHITE))
+    print('There are the short names of the models presented below:')
+
+    for i in models:
+        print('\t{2}{0}{3} -> {4}{1}{3}'.format(i.short_name, i.name, Fore.GREEN, Fore.WHITE, Fore.YELLOW))
+
+    print()
+
+
 def get_units_from_external_text_file() -> (list, str):
     clean_pattern1 = re.compile(r"([^'’a-zA-Z- ])|([\s]{2,})")
     clean_pattern2 = re.compile(r"([\s]+)")
 
     filename = get_path_from_dialog('Select text file', default='*.txt', file_types=["*.txt"])
     if filename == '':
+        print(f"{Fore.RED}Failed{Fore.WHITE} to load text file! Try again or choose another option in the menu.\n")
         return [], ''
 
     try:
@@ -89,7 +100,7 @@ def get_units_from_external_text_file() -> (list, str):
     return units, path.splitext(path.basename(filename))[0]
 
 
-def do_taylor_iteration(w_s: int, text_size: int, data_array, window_step_divider: int = 6):
+def do_taylor_iteration_dynamic(w_s: int, text_size: int, data_array, window_step_divider: int = 6):
     points_number = math.ceil(((text_size // w_s) * w_s - w_s) / (w_s // window_step_divider))
     d_sizes = np.empty(points_number, dtype=np.float32)
     d_sizes.fill(0)
@@ -101,7 +112,49 @@ def do_taylor_iteration(w_s: int, text_size: int, data_array, window_step_divide
     return d_average, np.std(d_sizes), w_s
 
 
-def do_taylor(data_array, text_size, points_number):
+def do_taylor_dynamic(data_array, text_size, points_number):
+    # max window size is only 5% of the text length
+    max_window_size = int(text_size * 0.05)
+    # starts with 10000 windows, but if text_size is smaller then initial size of window will be 10
+    window_initial_size = max(text_size // 10000, 10)
+    points_number = min(points_number, max_window_size - window_initial_size)
+    increment_size = int((max_window_size - window_initial_size) // (points_number - 1))
+
+    d_sizes = np.empty(points_number, dtype=np.float32)
+    std_values = np.empty(points_number, dtype=np.float32)
+    w_sizes = np.empty(points_number, dtype=np.int32)
+
+    for i, window_size in enumerate(range(window_initial_size, max_window_size, increment_size)):
+        if i >= points_number:
+            break
+        d_sizes[i], std_values[i], w_sizes[i] = do_taylor_iteration_dynamic(window_size, text_size, data_array)
+
+    # in some cases the last elements of these arrays can contain some incorrect data, so we need to remove it
+    if w_sizes[-1] != w_sizes[-2] + increment_size:
+        d_sizes = d_sizes[:-1]
+        std_values = std_values[:-1]
+        w_sizes = w_sizes[:-1]
+    return d_sizes, std_values, w_sizes
+
+
+def do_taylor_iteration_static(w_s: int, text_size: int, data_array, window_step_divider: int = 6):
+    points_number = math.ceil(((text_size // w_s) * w_s - w_s) / (w_s // window_step_divider))
+    d_sizes = np.empty(points_number, dtype=np.float32)
+    d_sizes.fill(0)
+
+    for index, w_p in enumerate(range(0, (text_size // w_s) * w_s - w_s, w_s // window_step_divider)):
+        data_slice = data_array[w_p:w_p + w_s]
+        d_sizes[index] = np.count_nonzero(data_slice)
+    d_average = np.average(d_sizes)
+    return d_average, np.std(d_sizes), w_s
+
+
+def do_taylor_static(data_array, text_size, points_number):
+    _, unique_indices = np.unique(data_array, return_index=True)
+    unique_mask = np.empty(text_size, dtype=np.int32)
+    unique_mask.fill(0)
+    unique_mask[unique_indices] = 1
+
     # max window size is only 5% of the text length
     max_window_size = int(text_size * 0.05)
     # starts with 10000 windows, but if text_size is smaller then initial size of window will be 10
@@ -117,12 +170,12 @@ def do_taylor(data_array, text_size, points_number):
     for i, window_size in enumerate(range(window_initial_size, max_window_size, increment_size)):
         if i >= points_number:
             break
-        arguments.append([window_size, text_size, data_array])
+        arguments.append([window_size, text_size, unique_mask])
 
     futures = []
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    with ThreadPoolExecutor() as executor:
         for args_local in arguments:
-            futures.append(executor.submit(do_taylor_iteration, *args_local))
+            futures.append(executor.submit(do_taylor_iteration_static, *args_local))
 
     futures, _ = concurrent.futures.wait(futures)
     for i, future in enumerate(futures):
@@ -159,18 +212,20 @@ def indices_to_values(indices: list, values: list) -> list:
 
 def save_generated_text_to_file(model, generated_units: list, external_filename: str):
     # get default filename generated from the parameters of the model and generated text
-    default_filename = get_filename_from_generation_params(model.name, len(generated_units), model.parameters) + '.txt'
+    default_filename = get_filename_from_model_params(model.short_name, len(generated_units), model.parameters)
     # ask user to select the resulting filename in the dialog window
-    filename = get_path_from_dialog('Save the generated text to file', default_filename,
-                                    ["*.txt"], open_dialog=False)
-    if filename != '':
-        if external_filename == '':
-            # convert indices to list of words
-            words = indices_to_values(generated_units, vocabulary_loader.vocabulary_words)
-        else:
-            words = generated_units
-        # save generated text to file
-        write_text_to_file(filename, get_text_from_list(words))
+    filename = get_path_from_dialog('Save the generated text to file', default_filename, ["*.txt"], open_dialog=False)
+    if filename == '':
+        print(f"{Fore.RED}Failed{Fore.WHITE} to save the text file! Try again or choose another option in the menu.\n")
+        return False
+
+    if external_filename == '':
+        # convert indices to list of words
+        words = indices_to_values(generated_units, vocabulary_loader.vocabulary_words)
+    else:
+        words = generated_units
+    # save generated text to file
+    write_text_to_file(filename, get_text_from_list(words))
 
 
 def human_format(number: float) -> str:
@@ -188,15 +243,15 @@ def human_format(number: float) -> str:
     return '{}{}'.format('{:f}'.format(number).rstrip('0').rstrip('.'), ['', 'K', 'M', 'B', 'T'][magnitude])
 
 
-def get_filename_from_generation_params(model_name: str, text_length: int, parameters: dict) -> str:
-    result: str = model_name.lower().replace(' model', '').replace(' ', '_')
-    result += f"__text_length[{human_format(text_length)}]"
+def get_filename_from_model_params(model_name: str, text_length: int, parameters: dict) -> str:
+    result: str = model_name.replace(' model', '').replace(' ', '_')
+    result += f"__[{human_format(text_length)}]"
     for k, v in parameters.items():
         if k == 'text_length' or k == 'urn_initial_size':
             continue
         result += "_{0}[{1}]".format(k, v['value'])
 
-    return result
+    return result + '.txt'
 
 
 def write_text_to_file(filename: str, text: str):
@@ -226,7 +281,7 @@ def get_word_frequencies(word_list: list) -> dict:
     return dict(Counter(word_list).most_common())
 
 
-def calculate_statistics(data: list, taylor_points: int = 150):
+def calculate_statistics(data: list, use_static_definition: bool, taylor_points: int = 200):
     print('{0}Calculating text statistics...{1}'.format(Fore.YELLOW, Fore.WHITE))
     watch = Stopwatch.start_new()
     watch.display_format = '{0}Text statistics calculated in {1}{{0}}{2} seconds!{3}\n'.format(Fore.YELLOW, Fore.GREEN,
@@ -236,7 +291,8 @@ def calculate_statistics(data: list, taylor_points: int = 150):
     # Taylor data
     text_size = len(data)
     word_array = np.asarray(data)
-    vocabulary_sizes, std_values, window_sizes = do_taylor(word_array, text_size, taylor_points)
+    taylor_method = do_taylor_static if use_static_definition else do_taylor_dynamic
+    vocabulary_sizes, std_values, window_sizes = taylor_method(word_array, text_size, taylor_points)
     statistics_data['taylor'] = {
         'x': vocabulary_sizes,
         'y': std_values
@@ -269,7 +325,8 @@ def save_statistics(statistics_data: dict):
     folder_path: str = get_path_from_dialog('Select folder where statistics data fill be saved', folder_mode=True)
 
     if folder_path == '':
-        return
+        print(f"{Fore.RED}Failed{Fore.WHITE} to save statistics! Try again or choose another option in the menu.\n")
+        return False
 
     zipf_filename = path.join(folder_path, 'zipf_data.txt')
     heaps_taylor_filename = path.join(folder_path, 'heaps_taylor_data.txt')

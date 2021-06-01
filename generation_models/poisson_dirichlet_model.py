@@ -8,8 +8,8 @@ from helpers import helper
 
 
 class PoissonDirechletModel(PolyaUrn):
-    def __init__(self, name: str):
-        super().__init__(name)
+    def __init__(self, name: str, short_name: str):
+        super().__init__(name, short_name)
         self.param_conditions: dict = {
             'rho >= (nu + 1)': "{0}['rho']['value'] >= {0}['nu']['value'] + 1"
         }

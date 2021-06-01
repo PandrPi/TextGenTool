@@ -15,8 +15,9 @@ class GenModel:
         'eta': 'η'
     }
 
-    def __init__(self, name: str, parameters: dict):
+    def __init__(self, name: str, short_name: str, parameters: dict):
         self.name = name
+        self.short_name = short_name
         self.parameters = parameters
         self.param_conditions: dict = {}
 

@@ -8,8 +8,8 @@ from helpers import helper
 
 
 class PoissonDirechletModelWithSemantics(PolyaUrnWithSemantics):
-    def __init__(self, name: str):
-        super().__init__(name)
+    def __init__(self, name: str, short_name: str):
+        super().__init__(name, short_name)
         self.param_conditions.update({
             'rho >= (nu + 1)': "{0}['rho']['value'] >= {0}['nu']['value'] + 1"
         })
@@ -93,7 +93,9 @@ class PoissonDirechletModelWithSemantics(PolyaUrnWithSemantics):
 
             # add the indices units that have the save label as the random_unit
             label_of_random_unit = unit_labels[random_unit]
-            [indices_of_one_weight.append(i) for i in labels[label_of_random_unit]]
+            # [indices_of_one_weight.append(i) for i in labels[label_of_random_unit]]
+            for i in labels[label_of_random_unit]:
+                indices_of_one_weight.append(i)
             # add a unit index that is the origin of the random_unit label
             origin_of_random_unit_label = label_origins[label_of_random_unit]
             if origin_of_random_unit_label is not None:

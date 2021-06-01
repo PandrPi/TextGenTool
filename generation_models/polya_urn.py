@@ -9,7 +9,7 @@ from helpers import helper
 
 
 class PolyaUrn(GenModel):
-    def __init__(self, name: str):
+    def __init__(self, name: str, short_name: str):
         parameters = copy.deepcopy(GenModel.params_general)
         parameters.update({
             'rho': {
@@ -21,7 +21,7 @@ class PolyaUrn(GenModel):
                 'constant': False
             }
         })
-        super().__init__(name, parameters)
+        super().__init__(name, short_name, parameters)
 
     def generate(self) -> list:
         urn_initial_size = self.parameters['urn_initial_size']['value']
