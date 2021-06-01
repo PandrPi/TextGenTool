@@ -107,7 +107,8 @@ def do_taylor_iteration_dynamic(w_s: int, text_size: int, data_array, window_ste
 
     for index, w_p in enumerate(range(0, (text_size // w_s) * w_s - w_s, w_s // window_step_divider)):
         data_slice = data_array[w_p:w_p + w_s]
-        d_sizes[index] = np.count_nonzero(np.bincount(data_slice))
+        # d_sizes[index] = np.count_nonzero(np.bincount(data_slice))
+        d_sizes[index] = np.unique(data_slice).size
     d_average = np.average(d_sizes)
     return d_average, np.std(d_sizes), w_s
 

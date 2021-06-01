@@ -82,7 +82,7 @@ def basic_plot_draw(fig: Figure, ax: Axes, plot_data: dict, x_label: str, y_labe
     ax.set_yscale('log')
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
-    ax.legend(prop={'size': 11})
+    ax.legend(prop={'size': 9.5})
     ax.set_title(plot_title)
 
     if show_plot:
