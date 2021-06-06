@@ -10,6 +10,7 @@ from generation_models.polya_urn_classic import PolyaUrnClassic
 from generation_models.semantics_poisson_dirichlet_model import PoissonDirechletModelWithSemantics
 from generation_models.semantics_polya_urn import PolyaUrnWithSemantics
 from helpers import helper, plot_drawer
+from helpers.settings_helper import Settings
 from helpers.stopwatch import Stopwatch
 from selection_menu import choose
 
@@ -46,7 +47,11 @@ def text_generation_step() -> bool:
 def calculating_statistics_step() -> bool:
     global choice, statistics_data, generated_units
     use_static_definition = choice == analysis_algorithm_menu_options[0]
-    statistics_data = helper.calculate_statistics(helper.list_to_indices(generated_units), use_static_definition)
+
+    points_number: int = Settings.get_value('sliding_window_points_number')
+    indices: list = helper.list_to_indices(generated_units)
+    statistics_data = helper.calculate_statistics(indices, use_static_definition, points_number)
+
     return True
 
 
@@ -98,6 +103,7 @@ if __name__ == "__main__":
         lambda: text_analysis_step()
     ]
 
+    settings = Settings()
     helper.show_welcome_message(models)
 
     # main loop

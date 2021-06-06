@@ -1,5 +1,7 @@
 {
     "last_opened_file": {},
     "last_saved_file": {},
-    "last_opened_folder": {}
+    "last_opened_folder": {},
+    "sliding_window_points_number": 200,
+    "sliding_window_step_divider": 6
 }

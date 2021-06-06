@@ -1,3 +1,7 @@
+import logging
+import os
+from os import path
+
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import gridspec
@@ -7,10 +11,9 @@ from scipy import stats
 from scipy.optimize import curve_fit
 
 from generation_models.general_model import GenModel
-
-
 # !!! IMPORTANT !!!
 # atan(m) - angle of slope in radians, where m - slope
+from helpers.settings_helper import Settings
 
 
 def nonlin_curve_func(values, a, b):
@@ -25,14 +28,15 @@ def get_nonlinear_fit_quality(x, y, popt) -> float:
 
 
 def draw_regression_curves(ax, x, y, use_nonlinear_regression=True):
-    print('\t', end='')
+    regression_data: str = "\t{0}\t\t{1}\t"
+
     if use_nonlinear_regression:
         regression, pcov1 = curve_fit(nonlin_curve_func, x, y, p0=(0.5, 1.0), method='lm', maxfev=20000)
         a, b = regression
         fit_quality = abs(round(get_nonlinear_fit_quality(x, y, regression) * 100, 4))
         ax.plot(x, nonlin_curve_func(x, a, b), c='#ff9113',
                 label="y=$\mathregular{{{0}*x^{{{1}}}}}$, R={2}%".format(round(a, 2), round(b, 2), fit_quality))
-        print("S_NLF {0}, R_NLF {1}, ".format(round(b, 3), fit_quality), end='')
+        regression_data = f"\t{{0}}\t{round(b, 3)}\t{{1}}\t{fit_quality}"
 
     x_log = np.log10(x)
     regression = stats.linregress(x_log, np.log10(y))
@@ -40,11 +44,18 @@ def draw_regression_curves(ax, x, y, use_nonlinear_regression=True):
     fit_quality = abs(round(regression.rvalue * 100, 4))
     ax.plot(x, np.power(10, a * x_log + b), c='#57b812',
             label="y={0}*x+{1}, R={2}%".format(round(a, 2), round(b, 2), fit_quality))
-    print("S_LF {0}, R_LF {1}".format(round(a, 3), fit_quality))
+
+    with open("temp.txt", "a") as fp:
+        fp.write("S_LF, S_NLF, R_LF, R_NLF\n")
+        fp.write(regression_data.format(round(a, 3), fit_quality) + '\n')
+
+    print("S_LF, S_NLF, R_LF, R_NLF")
+    print(regression_data.format(round(a, 3), fit_quality))
 
 
 def basic_plot_draw(fig: Figure, ax: Axes, plot_data: dict, x_label: str, y_label: str, scatter_label: str,
-                    plot_title: str, use_nonlinear_regression: bool = True, show_plot: bool = True):
+                    plot_title: str, legend_loc: str = 'upper left', use_nonlinear_regression: bool = True,
+                    show_plot: bool = True):
     """
     Draws the data inside the plot
 
@@ -55,6 +66,7 @@ def basic_plot_draw(fig: Figure, ax: Axes, plot_data: dict, x_label: str, y_labe
     :param y_label: Label for y axis
     :param scatter_label: label of scatter plot inside the Legends
     :param plot_title: Plot title
+    :param legend_loc: Location of the legend
     :param use_nonlinear_regression: Will nonlinear fitting curve be presented on plot
     :param show_plot: Will the plot window be shown
     """
@@ -63,17 +75,9 @@ def basic_plot_draw(fig: Figure, ax: Axes, plot_data: dict, x_label: str, y_labe
     y = plot_data['y']
 
     print('{0} regression data:'.format(plot_title))
+    with open("temp.txt", "a") as fp:
+        fp.write('{0} regression data:\n'.format(plot_title))
     draw_regression_curves(ax, x, y, use_nonlinear_regression)
-
-    # smooth = gaussian_filter1d(y, 70)
-    # ax.plot(x, smooth, label='smooth')
-    # # compute second derivative
-    # smooth_d2 = np.gradient(np.gradient(smooth))
-    # ax.plot(x, smooth_d2 / np.max(smooth_d2), label='smooth d2')
-    # # find switching points
-    # inflection_points = np.where(np.diff(np.sign(smooth_d2)))[0]
-    # for i, infl in enumerate(inflection_points, 1):
-    #     plt.axvline(x=x[infl], color='k', label=f'Inflection Point {i}')
 
     ax.scatter(x, y, marker='s', s=14, label=scatter_label)
     ax.tick_params(labelbottom=True, labeltop=True, labelleft=True, labelright=True,
@@ -82,7 +86,7 @@ def basic_plot_draw(fig: Figure, ax: Axes, plot_data: dict, x_label: str, y_labe
     ax.set_yscale('log')
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
-    ax.legend(prop={'size': 9.5})
+    ax.legend(prop={'size': 9.5}, loc=legend_loc)
     ax.set_title(plot_title)
 
     if show_plot:
@@ -96,7 +100,7 @@ def basic_plot_draw(fig: Figure, ax: Axes, plot_data: dict, x_label: str, y_labe
 
 def get_plot_label_from_parameters(model: GenModel, external_filename: str) -> str:
     if external_filename != '':
-        return external_filename
+        return path.splitext(path.basename(external_filename))[0]
     else:
         label = ''
         for k, v in model.get_params_for_plot().items():
@@ -119,7 +123,8 @@ def draw_zipf_law(data: dict, model: GenModel, external_filename: str):
 
     label = get_plot_label_from_parameters(model, external_filename)  # the label of resulting plot in Legends
 
-    basic_plot_draw(fig, ax, data, 'Rank', 'Frequency', label, "Zipf's law", use_nonlinear_regression=False)
+    basic_plot_draw(fig, ax, data, 'Rank', 'Frequency', label, "Zipf's law", legend_loc='upper right',
+                    use_nonlinear_regression=False)
 
 
 def draw_heaps_law(data: dict, model: GenModel, external_filename: str):
@@ -137,7 +142,7 @@ def draw_heaps_law(data: dict, model: GenModel, external_filename: str):
 
     label = get_plot_label_from_parameters(model, external_filename)  # the label of resulting plot in Legends
 
-    basic_plot_draw(fig, ax, data, 'Total number of words', 'Number of unique words', label, "Heaps' law")
+    basic_plot_draw(fig, ax, data, 'Total number of words', 'Vocabulary size', label, "Heaps' law")
 
 
 def draw_taylor_law(data: dict, model: GenModel, external_filename: str):
@@ -192,15 +197,21 @@ def draw_all_laws(data: dict, model: GenModel, external_filename: str):
 
     label = get_plot_label_from_parameters(model, external_filename)  # the label of resulting plot in Legends
     law_params = [
-        [data['zipf'], 'Rank', 'Frequency', label, "Zipf's law", False, False],
-        [data['heaps'], 'Total number of words', 'Number of unique words', label, "Heaps' law", True, False],
-        [data['taylor'], 'Vocabulary size', 'σ(Vocabulary size)', label, "Taylor's law", True, False],
-        [data['fluctuation'], 'Window size', 'σ(Vocabulary size)', label, "Fluctuation scaling", True, False],
+        [data['zipf'], 'Rank', 'Frequency', label, "Zipf's law", 1, False, False],
+        [data['heaps'], 'Total number of words', 'Vocabulary size', label, "Heaps' law", 2, True, False],
+        [data['taylor'], 'Vocabulary size', 'σ(Vocabulary size)', label, "Taylor's law", 2, True, False],
+        [data['fluctuation'], 'Window size', 'σ(Vocabulary size)', label, "Fluctuation scaling", 2, True, False],
     ]
 
     fig: Figure = plt.figure()
     gs = gridspec.GridSpec(2, 2)
     axes = [gs[0, 0], gs[0, 1], gs[1, 0], gs[1, 1]]
+
+    try:
+        with open("temp.txt", "w+") as fp:
+            fp.write('')
+    except Exception as e:
+        logging.exception(e)
 
     for i in range(len(law_params)):
         ax = fig.add_subplot(axes[i])
@@ -210,5 +221,8 @@ def draw_all_laws(data: dict, model: GenModel, external_filename: str):
     fig.canvas.manager.set_window_title('Plot window')
     fig.tight_layout()
     print()
+
+    if Settings.get_value('open_txt_file_with_plot_fitting_results') is True:
+        os.system("start " + 'temp.txt')
 
     plt.show()

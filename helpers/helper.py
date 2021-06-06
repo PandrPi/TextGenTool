@@ -16,8 +16,8 @@ from tqdm import trange
 import constants
 import vocabulary_loader
 from helpers.path_selector import show_directory_box, show_file_open_box
+from helpers.settings_helper import Settings
 from helpers.stopwatch import Stopwatch
-from settings_helper import Settings
 
 
 @jit(fastmath=True)
@@ -68,11 +68,18 @@ def get_etas_array(eta, array_size, indices_of_one) -> (np.array, np.float32):
 
 
 def show_welcome_message(models: list):
-    print('{0}!!!{1} Welcome to the TextGenTool  {0}!!!{2}\n'.format(Fore.YELLOW, Fore.GREEN, Fore.WHITE))
-    print('There are the short names of the models presented below:')
+    white, green, yellow = Fore.WHITE, Fore.GREEN, Fore.YELLOW
+    print('{0}!!!{1} Welcome to the TextGenTool  {0}!!!{2}\n'.format(yellow, green, white))
 
+    print('Sliding window parameters:')
+    points_number = Settings.get_value('sliding_window_points_number')
+    print('\t{2}{0}{3} = {4}{1}{3}'.format('Points number', points_number, green, white, yellow))
+    window_step_divider = Settings.get_value('sliding_window_step_divider')
+    print('\t{2}{0}{3} = {4}{1}{3}'.format('Window step divider', window_step_divider, green, white, yellow))
+
+    print('\nThere are the short names of the models presented below:')
     for i in models:
-        print('\t{2}{0}{3} -> {4}{1}{3}'.format(i.short_name, i.name, Fore.GREEN, Fore.WHITE, Fore.YELLOW))
+        print('\t{2}{0}{3} -> {4}{1}{3}'.format(i.short_name, i.name, green, white, yellow))
 
     print()
 
@@ -97,48 +104,72 @@ def get_units_from_external_text_file() -> (list, str):
         logging.exception(e)
         return [], ''
 
-    return units, path.splitext(path.basename(filename))[0]
+    return units, filename
 
 
-def do_taylor_iteration_dynamic(w_s: int, text_size: int, data_array, window_step_divider: int = 6):
+def perform_taylor_law_calculation(action, data_array, text_size, points_number, window_initial_size, max_window_size,
+                                   increment_size):
+    window_step_divider = Settings.get_value('sliding_window_step_divider')
+    arguments, result_list = [], []
+    for i, window_size in enumerate(range(window_initial_size, max_window_size, increment_size)):
+        if i >= points_number:
+            break
+        arguments.append([window_size, text_size, data_array, window_step_divider])
+
+    futures = []
+    with ThreadPoolExecutor() as executor:
+        for args_local in arguments:
+            futures.append(executor.submit(action, *args_local))
+
+    futures, _ = concurrent.futures.wait(futures)
+    for i, future in enumerate(futures):
+        result_list.append(future.result())
+
+    return result_list
+
+
+def create_sliding_window_params(text_limit_coefficient: float, text_size: int, points_number):
+    max_window_size = int(text_size * text_limit_coefficient)
+    # starts with 10000 windows, but if text_size is smaller then initial size of window will be 10
+    window_initial_size = max(text_size // 10000, 10)
+    points_number = min(points_number, max_window_size - window_initial_size)
+    increment_size = int((max_window_size - window_initial_size) // (points_number - 1))
+
+    return max_window_size, window_initial_size, points_number, increment_size
+
+
+def do_taylor_iteration_dynamic(w_s: int, text_size: int, data_array, window_step_divider: int):
     points_number = math.ceil(((text_size // w_s) * w_s - w_s) / (w_s // window_step_divider))
     d_sizes = np.empty(points_number, dtype=np.float32)
     d_sizes.fill(0)
 
     for index, w_p in enumerate(range(0, (text_size // w_s) * w_s - w_s, w_s // window_step_divider)):
         data_slice = data_array[w_p:w_p + w_s]
-        # d_sizes[index] = np.count_nonzero(np.bincount(data_slice))
         d_sizes[index] = np.unique(data_slice).size
     d_average = np.average(d_sizes)
     return d_average, np.std(d_sizes), w_s
 
 
 def do_taylor_dynamic(data_array, text_size, points_number):
-    # max window size is only 5% of the text length
-    max_window_size = int(text_size * 0.05)
-    # starts with 10000 windows, but if text_size is smaller then initial size of window will be 10
-    window_initial_size = max(text_size // 10000, 10)
-    points_number = min(points_number, max_window_size - window_initial_size)
-    increment_size = int((max_window_size - window_initial_size) // (points_number - 1))
+    # max window size is only 5% of the text length, so text_limit_coefficient should be equal 0.05
+    max_window_size, window_initial_size, points_number, increment_size = create_sliding_window_params(0.05, text_size,
+                                                                                                       points_number)
 
     d_sizes = np.empty(points_number, dtype=np.float32)
     std_values = np.empty(points_number, dtype=np.float32)
     w_sizes = np.empty(points_number, dtype=np.int32)
 
-    for i, window_size in enumerate(range(window_initial_size, max_window_size, increment_size)):
-        if i >= points_number:
-            break
-        d_sizes[i], std_values[i], w_sizes[i] = do_taylor_iteration_dynamic(window_size, text_size, data_array)
+    result = perform_taylor_law_calculation(do_taylor_iteration_dynamic, data_array, text_size, points_number,
+                                            window_initial_size,
+                                            max_window_size, increment_size)
 
-    # in some cases the last elements of these arrays can contain some incorrect data, so we need to remove it
-    if w_sizes[-1] != w_sizes[-2] + increment_size:
-        d_sizes = d_sizes[:-1]
-        std_values = std_values[:-1]
-        w_sizes = w_sizes[:-1]
+    for i, value in enumerate(result):
+        d_sizes[i], std_values[i], w_sizes[i] = value
+
     return d_sizes, std_values, w_sizes
 
 
-def do_taylor_iteration_static(w_s: int, text_size: int, data_array, window_step_divider: int = 6):
+def do_taylor_iteration_static(w_s: int, text_size: int, data_array, window_step_divider: int):
     points_number = math.ceil(((text_size // w_s) * w_s - w_s) / (w_s // window_step_divider))
     d_sizes = np.empty(points_number, dtype=np.float32)
     d_sizes.fill(0)
@@ -156,38 +187,89 @@ def do_taylor_static(data_array, text_size, points_number):
     unique_mask.fill(0)
     unique_mask[unique_indices] = 1
 
-    # max window size is only 5% of the text length
-    max_window_size = int(text_size * 0.05)
-    # starts with 10000 windows, but if text_size is smaller then initial size of window will be 10
-    window_initial_size = max(text_size // 10000, 10)
-    points_number = min(points_number, max_window_size - window_initial_size)
-    increment_size = int((max_window_size - window_initial_size) // (points_number - 1))
+    # max window size is only 5% of the text length, so text_limit_coefficient should be equal 0.05
+    max_window_size, window_initial_size, points_number, increment_size = create_sliding_window_params(0.05, text_size,
+                                                                                                       points_number)
 
     d_sizes = np.empty(points_number, dtype=np.float32)
     std_values = np.empty(points_number, dtype=np.float32)
+    w_sizes = np.empty(points_number, dtype=np.int32)
+
+    result = perform_taylor_law_calculation(do_taylor_iteration_static, unique_mask, text_size, points_number,
+                                            window_initial_size,
+                                            max_window_size, increment_size)
+
+    for i, value in enumerate(result):
+        d_sizes[i], std_values[i], w_sizes[i] = value
+
+    return d_sizes, std_values, w_sizes
+
+
+def do_heaps_iteration_dynamic(w_s: int, data_array):
+    data_slice = data_array[0:w_s]
+    return np.unique(data_slice).size, w_s
+
+
+def do_heaps_dynamic(data_array, text_size, points_number):
+    # max window size equals text_length, so text_limit_coefficient should be equal 1.0
+    max_window_size, window_initial_size, points_number, increment_size = create_sliding_window_params(1.0, text_size,
+                                                                                                       points_number)
+
+    d_sizes = np.empty(points_number, dtype=np.float32)
     w_sizes = np.empty(points_number, dtype=np.int32)
 
     arguments = []
     for i, window_size in enumerate(range(window_initial_size, max_window_size, increment_size)):
         if i >= points_number:
             break
-        arguments.append([window_size, text_size, unique_mask])
+        arguments.append([window_size, data_array])
 
     futures = []
     with ThreadPoolExecutor() as executor:
         for args_local in arguments:
-            futures.append(executor.submit(do_taylor_iteration_static, *args_local))
+            futures.append(executor.submit(do_heaps_iteration_dynamic, *args_local))
 
     futures, _ = concurrent.futures.wait(futures)
     for i, future in enumerate(futures):
-        d_sizes[i], std_values[i], w_sizes[i] = future.result()
+        d_sizes[i], w_sizes[i] = future.result()
 
-    # in some cases the last elements of these arrays can contain some incorrect data, so we need to remove it
-    if w_sizes[-1] != w_sizes[-2] + increment_size:
-        d_sizes = d_sizes[:-1]
-        std_values = std_values[:-1]
-        w_sizes = w_sizes[:-1]
-    return d_sizes, std_values, w_sizes
+    return d_sizes, w_sizes
+
+
+def do_heaps_iteration_static(w_s: int, data_array):
+    data_slice = data_array[0:w_s]
+    return np.count_nonzero(data_slice), w_s
+
+
+def do_heaps_static(data_array, text_size, points_number):
+    _, unique_indices = np.unique(data_array, return_index=True)
+    unique_mask = np.empty(text_size, dtype=np.int32)
+    unique_mask.fill(0)
+    unique_mask[unique_indices] = 1
+
+    # max window size equals text_length, so text_limit_coefficient should be equal 1.0
+    max_window_size, window_initial_size, points_number, increment_size = create_sliding_window_params(1.0, text_size,
+                                                                                                       points_number)
+
+    d_sizes = np.empty(points_number, dtype=np.float32)
+    w_sizes = np.empty(points_number, dtype=np.int32)
+
+    arguments = []
+    for i, window_size in enumerate(range(window_initial_size, max_window_size, increment_size)):
+        if i >= points_number:
+            break
+        arguments.append([window_size, unique_mask])
+
+    futures = []
+    with ThreadPoolExecutor() as executor:
+        for args_local in arguments:
+            futures.append(executor.submit(do_heaps_iteration_static, *args_local))
+
+    futures, _ = concurrent.futures.wait(futures)
+    for i, future in enumerate(futures):
+        d_sizes[i], w_sizes[i] = future.result()
+
+    return d_sizes, w_sizes
 
 
 def list_to_indices(source: list) -> list:
@@ -212,8 +294,11 @@ def indices_to_values(indices: list, values: list) -> list:
 
 
 def save_generated_text_to_file(model, generated_units: list, external_filename: str):
-    # get default filename generated from the parameters of the model and generated text
-    default_filename = get_filename_from_model_params(model.short_name, len(generated_units), model.parameters)
+    if external_filename == '':
+        # get default filename generated from the parameters of the model and generated text
+        default_filename = get_filename_from_model_params(model.short_name, len(generated_units), model.parameters)
+    else:
+        default_filename = external_filename
     # ask user to select the resulting filename in the dialog window
     filename = get_path_from_dialog('Save the generated text to file', default_filename, ["*.txt"], open_dialog=False)
     if filename == '':
@@ -282,7 +367,7 @@ def get_word_frequencies(word_list: list) -> dict:
     return dict(Counter(word_list).most_common())
 
 
-def calculate_statistics(data: list, use_static_definition: bool, taylor_points: int = 200):
+def calculate_statistics(data: list, use_static_definition: bool, points_number: int):
     print('{0}Calculating text statistics...{1}'.format(Fore.YELLOW, Fore.WHITE))
     watch = Stopwatch.start_new()
     watch.display_format = '{0}Text statistics calculated in {1}{{0}}{2} seconds!{3}\n'.format(Fore.YELLOW, Fore.GREEN,
@@ -293,7 +378,7 @@ def calculate_statistics(data: list, use_static_definition: bool, taylor_points:
     text_size = len(data)
     word_array = np.asarray(data)
     taylor_method = do_taylor_static if use_static_definition else do_taylor_dynamic
-    vocabulary_sizes, std_values, window_sizes = taylor_method(word_array, text_size, taylor_points)
+    vocabulary_sizes, std_values, window_sizes = taylor_method(word_array, text_size, points_number)
     statistics_data['taylor'] = {
         'x': vocabulary_sizes,
         'y': std_values
@@ -306,9 +391,11 @@ def calculate_statistics(data: list, use_static_definition: bool, taylor_points:
     }
 
     # Heaps data
+    heaps_method = do_heaps_static if use_static_definition else do_heaps_dynamic
+    heaps_y, heaps_x = heaps_method(word_array, text_size, points_number)
     statistics_data['heaps'] = {
-        'x': window_sizes,
-        'y': vocabulary_sizes
+        'x': heaps_x,
+        'y': heaps_y
     }
 
     # Zipf data
@@ -330,16 +417,21 @@ def save_statistics(statistics_data: dict):
         return False
 
     zipf_filename = path.join(folder_path, 'zipf_data.txt')
-    heaps_taylor_filename = path.join(folder_path, 'heaps_taylor_data.txt')
+    taylor_filename = path.join(folder_path, 'taylor_data.txt')
+    heaps_filename = path.join(folder_path, 'heaps_data.txt')
 
     zipf_data = statistics_data['zipf']
     matrix_data = np.asarray([zipf_data['x'], zipf_data['y']]).T
     np.savetxt(zipf_filename, matrix_data, delimiter="\t", fmt='%e', header='Rank\t\tFrequency')
 
-    heaps_data = statistics_data['heaps']
     taylor_data = statistics_data['taylor']
-    matrix_data = np.asarray([heaps_data['x'], heaps_data['y'], taylor_data['y']]).T
-    np.savetxt(heaps_taylor_filename, matrix_data, delimiter="\t", fmt='%e', header='Windows\t\tVocabulary\tStdValues')
+    fluctuation_data = statistics_data['taylor']
+    matrix_data = np.asarray([fluctuation_data['x'], taylor_data['x'], taylor_data['y']]).T
+    np.savetxt(taylor_filename, matrix_data, delimiter="\t", fmt='%e', header='Windows\t\tVocabulary\tStdValues')
+
+    heaps_data = statistics_data['heaps']
+    matrix_data = np.asarray([heaps_data['x'], heaps_data['y']]).T
+    np.savetxt(heaps_filename, matrix_data, delimiter="\t", fmt='%e', header='Words\t\tVocabulary')
 
 
 def clamp(value, min_limit, max_limit):
@@ -396,6 +488,19 @@ def safe_cast(value, to_type, default=None):
         return default
 
 
+def get_path_from_settings_by_extension(key: str, extension: str = ''):
+    value = Settings.get_value(key)
+    if extension not in value:
+        return None
+    return value[extension]
+
+
+def set_path_in_settings_by_extension(key: str, value, extension: str = ''):
+    value_local = Settings.get_value(key)
+    value_local[extension] = value
+    Settings.set_value(key, value_local)
+
+
 def get_path_from_dialog(title: str, default: str = '*', file_types: list = None, open_dialog: bool = True,
                          folder_mode: bool = False) -> str:
     """
@@ -414,15 +519,15 @@ def get_path_from_dialog(title: str, default: str = '*', file_types: list = None
     settings_key = 'last_opened_folder' if folder_mode else 'last_opened_file' if open_dialog else 'last_saved_file'
     file_method = show_directory_box if folder_mode else show_file_open_box if open_dialog else easygui.filesavebox
     extension = '' if file_types is None else file_types[0].replace('*', '')
-    default_local = Settings.get_value(settings_key, extension)
+    default_local = get_path_from_settings_by_extension(settings_key, extension)
 
     # if there exist path by extension in the settings and this method is not called to save the generated text
-    if default_local is not None and title != 'Save the generated text to file':
-        default = default_local
-
-    if default_local is not None and title == 'Save the generated text to file':
-        temp_folder = path.split(default_local)[0]
-        default = path.join(temp_folder, default)
+    if default_local is not None:
+        if title != 'Save the generated text to file':
+            default = default_local
+        else:
+            temp_folder = path.split(default_local)[0]
+            default = path.join(temp_folder, default)
 
     for i in range(max_closes):
         attempts = max_closes - i
@@ -438,6 +543,6 @@ def get_path_from_dialog(title: str, default: str = '*', file_types: list = None
                 selected_path += extension
         else:
             extension = ''
-        Settings.set_value(settings_key, selected_path, extension)
+        set_path_in_settings_by_extension(settings_key, selected_path, extension)
         return selected_path
     return ''

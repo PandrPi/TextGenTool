@@ -1,10 +1,14 @@
+import copy
 import json
 import logging
 
 default_settings = {
     "last_opened_file": {},
     "last_saved_file": {},
-    "last_opened_folder": {}
+    "last_opened_folder": {},
+    "sliding_window_points_number": 200,
+    "sliding_window_step_divider": 6,
+    "open_txt_file_with_plot_fitting_results": False
 }
 
 
@@ -19,10 +23,10 @@ class Settings:
         self._init_json(Settings.settings_filename)
 
     def _init_json(self, filename: str):
-        settings_local = default_settings
+        settings_local = copy.deepcopy(default_settings)
         try:
             with open(filename, 'r') as fp:
-                settings_local = json.load(fp)
+                settings_local.update(json.load(fp))
         except Exception as e:
             logging.error(e)
 
@@ -36,21 +40,15 @@ class Settings:
             logging.error(e)
 
     @classmethod
-    def get_value(cls, key: str, extension: str = ''):
+    def get_value(cls, key: str):
         self = cls._instance
         if key not in self._settings_dict:
             return None
-        value = self._settings_dict[key]
-        if extension not in value:
-            return None
-        return self._settings_dict[key][extension]
+        return self._settings_dict[key]
 
     @classmethod
-    def set_value(cls, key: str, value, extension: str = ''):
+    def set_value(cls, key: str, value):
         self = cls._instance
         if key in self._settings_dict:
-            self._settings_dict[key][extension] = value
+            self._settings_dict[key] = value
             self._save_setting_to_file()
-
-
-settings = Settings()
